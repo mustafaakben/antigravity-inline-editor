@@ -1,6 +1,6 @@
 {
   "name": "antigravity-inline-editor",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Unofficial inline editor for the Antigravity desktop app: an Edits tab with autosave, find and replace, and Comment/Quote on selections.",
   "license": "MIT",
   "author": "Mustafa Akben",

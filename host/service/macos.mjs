@@ -65,5 +65,7 @@ export async function install({ node, script, home }) {
 export async function uninstall() {
   if ((await status()).loaded) await run('/bin/launchctl', ['bootout', `${domain()}/${LABEL}`]).catch(() => {});
   await rm(plistPath(), { force: true });
+  // launchd stops the service asynchronously; report the settled state.
+  for (let attempt = 0; attempt < 20 && (await status()).loaded; attempt++) await new Promise((done) => setTimeout(done, 250));
   return status();
 }

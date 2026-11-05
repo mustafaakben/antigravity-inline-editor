@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-05
+
+### Fixed
+- The Edits button now appears in file viewers that are not wrapped in a side-panel focus scope, as in Antigravity 2.28 on Windows.
+- `uninstall` on macOS reports the service state after launchd has finished stopping it.
+
 ## [0.6.0] - 2026-11-05
 
 ### Added
@@ -75,5 +81,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Edits tab beside Preview and Raw with explicit save, read-back verification, and conflict detection.
 
-[Unreleased]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mustafaakben/antigravity-inline-editor/releases/tag/v0.6.0

@@ -1,7 +1,7 @@
 /* antigravity-inline-editor: the Edits tab, injected into Antigravity windows by host/attach.mjs. */
 (() => {
   'use strict';
-  const VERSION = '0.6.0';
+  const VERSION = '0.6.1';
   // Pure text helpers come first so tests can load them without a browser (see test/runtime).
   const MAX_BYTES = 2 * 1024 * 1024;
   const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -558,6 +558,19 @@
     view.tabs.classList.remove('agy-edits-tabs-active');
     if (view.ownTabs) view.tabs.remove();
   }
+  // Pairs a File Viewer header with its viewer. Side panels mark the pair with a focus scope;
+  // other layouts (seen in Antigravity 2.28 on Windows) do not, so fall back to the nearest
+  // ancestor that contains a File Viewer.
+  function viewerFor(header) {
+    const selector = 'div[aria-label="File Viewer"][tabindex="0"]';
+    const marked = header.closest('[data-side-panel-focus-scope="true"]');
+    if (marked?.querySelector(selector)) return { scope:marked, host:marked.querySelector(selector) };
+    for (let el = header.parentElement; el && el !== document.body; el = el.parentElement) {
+      const host = el.querySelector(selector);
+      if (host) return { scope:el, host };
+    }
+    return { scope:null, host:null };
+  }
   function scan() {
     for (const [header, view] of views) {
       if (!header.isConnected || !view.host.isConnected || !view.tab.isConnected || !view.panel.isConnected) {
@@ -566,8 +579,7 @@
     }
     for (const header of document.querySelectorAll('[aria-label="File Viewer header"]')) {
       if (!visible(header)) continue;
-      const scope = header.closest('[data-side-panel-focus-scope="true"]');
-      const host = scope?.querySelector('div[aria-label="File Viewer"][tabindex="0"]');
+      const { scope, host } = viewerFor(header);
       const buttons = [...header.querySelectorAll('button, [role="button"]')];
       let raw = buttons.find(el => el.textContent.trim() === 'Raw');
       let tabs = raw?.parentElement;
