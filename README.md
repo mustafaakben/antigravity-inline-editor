@@ -22,9 +22,9 @@ Keyboard shortcuts are shown with macOS symbols; on Windows and Linux use Ctrl f
 
 ## Requirements
 
-- [Node.js](https://nodejs.org) 22.4 or newer
+- [Node.js](https://nodejs.org) 22.4 or newer (also needed for `npx`)
 - The Antigravity desktop app
-- macOS (tested), Windows or Linux (see [compatibility](docs/compatibility.md))
+- macOS or Windows (tested live); Linux is experimental (see [compatibility](docs/compatibility.md))
 
 ## Installation
 
@@ -35,6 +35,8 @@ The repository is private for now, so both methods need access to it on GitHub.
 ```sh
 npx github:mustafaakben/antigravity-inline-editor install
 ```
+
+If you use a version manager such as nvm, run `install` again after switching Node versions, because the login service remembers the Node path it was installed with.
 
 **From a clone:**
 

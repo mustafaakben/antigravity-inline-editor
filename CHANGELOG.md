@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `uninstall` on macOS reports the service state after launchd has finished stopping it.
 - `install` stops a running host before starting the new one, so updates take effect on Windows, where starting an already-running task does nothing.
 
+### Changed
+- Windows is listed as supported after a live test on Windows 11 with Antigravity 2.28.2; Linux remains experimental.
+
 ## [0.6.0] - 2026-11-05
 
 ### Added
