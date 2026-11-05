@@ -11,10 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - The Edits button now appears in file viewers that are not wrapped in a side-panel focus scope, as in Antigravity 2.28 on Windows.
 - `uninstall` on macOS reports the service state after launchd has finished stopping it.
+- Reinstalling on macOS waits for launchd to finish unloading the old service before loading the new one, so the service no longer fails to start on update.
 - `install` stops a running host before starting the new one, so updates take effect on Windows, where starting an already-running task does nothing.
 
 ### Changed
 - Windows is listed as supported after a live test on Windows 11 with Antigravity 2.28.2; Linux remains experimental.
+- CI installs, reinstalls, and uninstalls the login service on macOS and Windows runners.
 
 ## [0.6.0] - 2026-11-05
 

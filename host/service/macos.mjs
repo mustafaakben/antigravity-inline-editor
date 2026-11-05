@@ -55,17 +55,22 @@ export async function install({ node, script, home }) {
   try {
     await writeFile(temporary, renderPlist({ node, script, logDir }), { mode: 0o644, flag: 'wx' });
     await run('/usr/bin/plutil', ['-lint', temporary]);
-    if ((await status()).loaded) await run('/bin/launchctl', ['bootout', `${domain()}/${LABEL}`]).catch(() => {});
+    await stop();
     await rename(temporary, target);
   } finally { await rm(temporary, { force: true }); }
   await run('/bin/launchctl', ['bootstrap', domain(), target]);
   return status();
 }
 
+// launchd unloads asynchronously; bootstrapping before it finishes fails, so wait it out.
+async function stop() {
+  if (!(await status()).loaded) return;
+  await run('/bin/launchctl', ['bootout', `${domain()}/${LABEL}`]).catch(() => {});
+  for (let attempt = 0; attempt < 40 && (await status()).loaded; attempt++) await new Promise((done) => setTimeout(done, 250));
+}
+
 export async function uninstall() {
-  if ((await status()).loaded) await run('/bin/launchctl', ['bootout', `${domain()}/${LABEL}`]).catch(() => {});
+  await stop();
   await rm(plistPath(), { force: true });
-  // launchd stops the service asynchronously; report the settled state.
-  for (let attempt = 0; attempt < 20 && (await status()).loaded; attempt++) await new Promise((done) => setTimeout(done, 250));
   return status();
 }
