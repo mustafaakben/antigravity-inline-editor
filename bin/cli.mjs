@@ -55,6 +55,15 @@ async function copyApp(home) {
   return app;
 }
 
+// Stops a running host (an older version keeps its code in memory) and waits for it to exit.
+async function stopHost(home) {
+  const pid = await runningHostPid(home);
+  if (pid === null) return;
+  try { process.kill(pid); } catch { /* already stopped */ }
+  for (let attempt = 0; attempt < 25 && await runningHostPid(home) !== null; attempt++) await delay(200);
+  await rm(join(home, 'host.pid'), { force: true });
+}
+
 async function windowsStatus() {
   if (!await discover()) return { app: false, windows: 0, targets: [] };
   try { return await runOnce('status'); }
@@ -73,6 +82,7 @@ async function install() {
   const app = await copyApp(home);
   const { version } = JSON.parse(await readFile(join(app, 'package.json'), 'utf8'));
   const node = await stableNode();
+  await stopHost(home);
   const service = await serviceFor().install({ node, script: join(app, 'bin', 'cli.mjs'), home });
   // Give the host a moment to discover Antigravity and attach.
   let result;
@@ -88,14 +98,12 @@ async function install() {
 async function uninstall(purge) {
   const home = dataDir();
   const service = await serviceFor().uninstall({ home });
-  const pid = await runningHostPid(home);
-  if (pid) { try { process.kill(pid); } catch { /* already stopped */ } }
+  await stopHost(home);
   let detached = { app: false };
   if (await discover()) detached = await runOnce('remove').catch((error) => ({ error: error.message }));
   const refused = detached.targets?.some((target) => target.removed === false);
   await rm(join(home, 'app'), { recursive: true, force: true });
   if (purge) await rm(home, { recursive: true, force: true });
-  await rm(join(home, 'host.pid'), { force: true }).catch(() => {});
   print({ uninstalled: true, service, detached, purged: !!purge });
   if (refused) {
     console.log('\nA window still has unsaved edits, so Edits stayed in that window until it is reloaded.');
