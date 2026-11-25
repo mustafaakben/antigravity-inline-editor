@@ -1,10 +1,11 @@
 import { basicSetup } from "codemirror";
-import { EditorState, EditorSelection, Compartment, Prec, StateEffect, Transaction } from "@codemirror/state";
-import { EditorView, keymap, ViewPlugin, Decoration } from "@codemirror/view";
+import { EditorState, EditorSelection, Compartment, Prec, Transaction } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
 import { indentWithTab, undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
 import { search, searchKeymap } from "@codemirror/search";
 import { createFindPanel, openFind, toggleFind, findTheme } from "./find-panel.js";
-import { indentUnit, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { indentUnit, syntaxHighlighting } from "@codemirror/language";
+import { classHighlighter } from "@lezer/highlight";
 import { javascript } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
 import { python } from "@codemirror/lang-python";
@@ -20,95 +21,27 @@ function language(uri) {
   return ({ json, py: python, pyw: python, md: markdown, markdown, css, html, htm: html })[ext]?.() ?? [];
 }
 
+// Colors come from the host's MCP Apps style variables (see styles.css), with fallbacks.
 const theme = EditorView.theme({
-  "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--foreground)", fontSize: "12px" },
+  "&": { height: "100%", backgroundColor: "var(--edits-bg)", color: "var(--edits-fg)", fontSize: "12px" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { overflow: "auto", fontFamily: "var(--editor-font-family, ui-monospace, SFMono-Regular, Menlo, monospace)", lineHeight: "1.6" },
-  ".cm-content": { padding: "8px 0", caretColor: "var(--foreground)" },
+  ".cm-scroller": { overflow: "auto", fontFamily: "var(--edits-mono)", lineHeight: "1.6" },
+  ".cm-content": { padding: "8px 0", caretColor: "var(--edits-fg)" },
   ".cm-line": { padding: "0 12px" },
-  ".cm-gutters": { backgroundColor: "transparent", color: "var(--editor-line-number-foreground)", border: "none", paddingRight: "8px" },
-  ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "var(--muted)" },
-  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--foreground)" },
-  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "var(--editor-selection-background) !important" },
-  ".cm-panels": { backgroundColor: "var(--background)", color: "var(--foreground)", borderColor: "var(--border)", fontFamily: "inherit" },
-  ".cm-textfield, .cm-button": { color: "var(--foreground)", background: "var(--background)", border: "1px solid var(--border)", borderRadius: "4px", padding: "3px 6px", font: "inherit" },
-  ".cm-textfield::placeholder": { color: "var(--placeholder)" },
-  ".cm-textfield:focus-visible, .cm-button:focus-visible": { outline: "1px solid var(--primary)", outlineOffset: "1px" },
-  ".cm-button, .cm-foldPlaceholder": { background: "var(--secondary)", color: "var(--secondary-foreground)", borderColor: "var(--border)" },
-  ".cm-button:hover": { background: "var(--muted)", color: "var(--foreground)" },
-  ".cm-searchMatch": { backgroundColor: "var(--editor-find-match-background)" },
-  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "var(--editor-find-current-background)", outline: "1px solid var(--editor-find-current-border)" },
-  ".cm-matchingBracket": { backgroundColor: "var(--editor-selection-background)", outline: "1px solid var(--border)" },
-  ".cm-nonmatchingBracket": { color: "var(--error)" },
-  ".cm-tooltip": { backgroundColor: "var(--card)", color: "var(--foreground)", border: "1px solid var(--card-border)" },
-  ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "var(--secondary)", color: "var(--foreground)" },
+  ".cm-gutters": { backgroundColor: "transparent", color: "var(--edits-muted)", border: "none", paddingRight: "8px" },
+  ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "var(--edits-active-line)" },
+  ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--edits-fg)" },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "var(--edits-selection) !important" },
+  ".cm-panels": { backgroundColor: "var(--edits-bg)", color: "var(--edits-fg)", borderColor: "var(--edits-border)", fontFamily: "inherit" },
+  ".cm-searchMatch": { backgroundColor: "var(--edits-match)" },
+  ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "var(--edits-match-current)", outline: "1px solid var(--edits-ring)" },
+  ".cm-matchingBracket": { backgroundColor: "var(--edits-selection)", outline: "1px solid var(--edits-border)" },
+  ".cm-nonmatchingBracket": { color: "var(--edits-danger)" },
+  ".cm-foldPlaceholder": { background: "var(--edits-hover)", color: "var(--edits-fg)", border: "1px solid var(--edits-border)" },
+  ".cm-tooltip": { backgroundColor: "var(--edits-bg-raised)", color: "var(--edits-fg)", border: "1px solid var(--edits-border)" },
+  ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "var(--edits-hover)", color: "var(--edits-fg)" },
   ...findTheme,
 });
-
-// A nonfallback highlighter prevents basicSetup's independent default palette.
-const noLezerHighlighting = syntaxHighlighting(HighlightStyle.define([]));
-const refreshPrism = StateEffect.define();
-const prismAliases = {
-  md: "markdown", markdown: "markdown", js: "javascript", mjs: "javascript", cjs: "javascript",
-  ts: "typescript", cts: "typescript", mts: "typescript", py: "python", pyw: "python",
-  html: "markup", htm: "markup", xml: "markup", svg: "markup", txt: "text", plaintext: "text",
-  sh: "bash", shell: "bash", yml: "yaml", rb: "ruby", rs: "rust", cs: "csharp", h: "c", cc: "cpp",
-};
-
-function prismHighlighting(uri) {
-  const ext = uri.split(/[?#]/)[0].split(".").pop().toLowerCase();
-  const name = prismAliases[ext] ?? ext;
-  const grammar = () => {
-    const languages = window.Prism?.languages;
-    const value = languages && Object.hasOwn(languages, name) ? languages[name] : null;
-    return value && typeof value === "object" ? value : null;
-  };
-  function decorate(view, rules) {
-    if (!rules || !window.Prism?.tokenize || view.state.doc.length > 100000) return Decoration.none;
-    const ranges = [];
-    let offset = 0;
-    // Raw's h7c gives every leaf the child's aliases followed by its inherited classes.
-    function flatten(token, inherited = "") {
-      if (typeof token === "string") {
-        const lines = token.split("\n");
-        lines.forEach((line, index) => {
-          if (line && inherited) ranges.push(Decoration.mark({ class: inherited }).range(offset, offset + line.length));
-          offset += line.length + (index < lines.length - 1 ? 1 : 0);
-        });
-      } else {
-        const alias = Array.isArray(token.alias) ? token.alias.join(" ") : token.alias || "";
-        const type = token.type + (alias ? ` ${alias}` : "");
-        const classes = `token ${type}` + (inherited ? ` ${inherited.replace(/^token /, "")}` : "");
-        if (Array.isArray(token.content)) token.content.forEach(child => flatten(child, classes));
-        else flatten(token.content, classes);
-      }
-    }
-    try {
-      window.Prism.tokenize(view.state.doc.toString(), rules).forEach(token => flatten(token));
-      return Decoration.set(ranges);
-    } catch {
-      return Decoration.none;
-    }
-  }
-  return ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.rules = grammar();
-      this.decorations = decorate(view, this.rules);
-      this.loaded = event => {
-        if (event.target?.tagName === "SCRIPT" && grammar() !== this.rules) view.dispatch({ effects: refreshPrism.of(null) });
-      };
-      document.addEventListener("load", this.loaded, true);
-    }
-    update(update) {
-      const rules = grammar();
-      if (update.docChanged || rules !== this.rules || update.transactions.some(transaction => transaction.effects.some(effect => effect.is(refreshPrism)))) {
-        this.rules = rules;
-        this.decorations = decorate(update.view, rules);
-      }
-    }
-    destroy() { document.removeEventListener("load", this.loaded, true); }
-  }, { decorations: plugin => plugin.decorations });
-}
 
 // Nearest nonblank line, so Markdown's blank paragraph separators do not hide the context.
 function neighbor(doc, number, step) {
@@ -149,7 +82,7 @@ function create({ parent, uri = "", text = "", onChange = () => {}, onPosition =
     });
   };
   const extensions = (fileUri) => [
-    basicSetup, theme, noLezerHighlighting, prismHighlighting(fileUri), language(fileUri), EditorView.lineWrapping, indentUnit.of("  "), EditorState.tabSize.of(2),
+    basicSetup, theme, syntaxHighlighting(classHighlighter), language(fileUri), EditorView.lineWrapping, indentUnit.of("  "), EditorState.tabSize.of(2),
     search({ top: true, createPanel: createFindPanel }), readOnly.of(EditorState.readOnly.of(locked)),
     Prec.highest(keymap.of([
       { key: "Mod-s", preventDefault: true, run: () => { onSave(); return true; } },
@@ -299,4 +232,4 @@ function create({ parent, uri = "", text = "", onChange = () => {}, onPosition =
   };
 }
 
-window.__agyEditorCore = { version: 7, create };
+export { create, language };

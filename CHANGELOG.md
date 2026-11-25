@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-24
+
+Edits is now an Antigravity plugin. Antigravity 2.33 stopped opening the local debugging port that versions 0.6 and earlier attached through, so those versions no longer work with current Antigravity.
+
+### Changed
+- Edits is an [MCP Apps](https://antigravity.google/docs/mcp-apps) custom file viewer, packaged as the `inline-editor` plugin. `install` copies it to `~/.gemini/config/plugins/inline-editor`; there is no background host or login service.
+- Files are read and written through Antigravity's MCP Apps file access instead of its internal file service.
+- Quote and Comment attach the selection, with nearby lines, to your next message as model context. Plugins cannot add native review comments, so comments no longer appear in Raw and Preview.
+- Colors come from the MCP Apps host theme variables, and syntax colors from CodeMirror, instead of Antigravity's internal CSS variables and Prism.
+- Crash-recovery drafts are stored by the plugin's server in `~/.gemini/antigravity/plugin_data/inline-editor/drafts.json`.
+- Files up to 10 MB are supported (was 2 MB).
+- Requires Antigravity 2.34 or newer.
+
+### Added
+- A Markdown **Preview** inside Edits, since claiming `.md` replaces Antigravity's own Preview. Markdown files open in Preview with an **Edit** button.
+- Browser tests of the view against a mock MCP Apps host (`npm run test:e2e`).
+
+### Removed
+- The debugging-port host (`watch`, `attach`, and `detach` commands) and the login services. `install` and `uninstall` remove what version 0.6 installed.
+- HTML, SVG, CSV, and TSV are left to Antigravity's own viewer, so their native previews keep working.
+
 ## [0.6.1] - 2026-11-05
 
 ### Fixed
@@ -87,6 +108,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - Edits tab beside Preview and Raw with explicit save, read-back verification, and conflict detection.
 
-[Unreleased]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/mustafaakben/antigravity-inline-editor/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mustafaakben/antigravity-inline-editor/releases/tag/v0.6.0

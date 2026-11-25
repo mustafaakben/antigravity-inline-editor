@@ -1,0 +1,13 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "inline-editor",
+  "displayName": "Edits",
+  "version": "0.7.0",
+  "description": "Edit text and code files in place in the side panel, with autosave, find and replace, and Quote and Comment into chat. Unofficial; not affiliated with Google.",
+  "logo": "assets/logo.svg",
+  "author": { "name": "Mustafa Akben" },
+  "homepage": "https://github.com/mustafaakben/antigravity-inline-editor",
+  "repository": "https://github.com/mustafaakben/antigravity-inline-editor",
+  "license": "MIT",
+  "keywords": ["editor", "markdown", "autosave", "mcp-app"]
+}

@@ -1,12 +1,7 @@
-// Loads the pure helpers from runtime/edits-tab.js through its test hook, without a browser.
+// The view's pure text helpers, tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import vm from 'node:vm';
-
-const source = await readFile(new URL('../../runtime/edits-tab.js', import.meta.url), 'utf8');
-const helpers = vm.runInNewContext(source, { window: { __agyEditsTestHooks: true }, TextDecoder, TextEncoder, atob, btoa });
-const { decode, encode, clip, formatQuote } = helpers;
+import { decode, encode, clip, formatQuote, formatComment, contextBlocks, fingerprint } from '../../src/text.js';
 const b64 = (bytes) => Buffer.from(bytes).toString('base64');
 
 test('decode normalizes CRLF and remembers the format', () => {
@@ -24,7 +19,7 @@ test('decode refuses binary, invalid UTF-8, mixed endings, and large files', () 
   assert.throws(() => decode(b64('a\0b')), /binary/);
   assert.throws(() => decode(b64(Buffer.from([0xff, 0xfe, 0x00]))));
   assert.throws(() => decode(b64('a\r\nb\nc')), /mixed line endings/);
-  assert.throws(() => decode('A'.repeat(3 * 1024 * 1024)), /2 MB/);
+  assert.throws(() => decode('A'.repeat(15 * 1024 * 1024)), /10 MB/);
 });
 
 test('encode round-trips text with the original line endings and BOM', () => {
@@ -58,4 +53,22 @@ test('formatQuote marks unsaved drafts, ranges, and escapes the file name', () =
   assert.doesNotMatch(quote, /<before>/);
 });
 
-test('runtime exposes its version', () => assert.match(helpers.VERSION, /^\d+\.\d+\.\d+$/));
+test('formatComment adds the note to the quoted context', () => {
+  const text = formatComment({ name: 'notes.md', sel, comment: 'Reword this', unsaved: false });
+  assert.match(text, /^<comment file="notes.md" lines="5">/);
+  assert.match(text, /<note>Reword this<\/note>\n<\/comment>$/);
+});
+
+test('contextBlocks joins every pending item into one text block', () => {
+  assert.deepEqual(contextBlocks([]), []);
+  const [block] = contextBlocks([{ text: 'A' }, { text: 'B' }]);
+  assert.equal(block.type, 'text');
+  assert.match(block.text, /^The user attached these 2 items/);
+  assert.match(block.text, /A\n\nB$/);
+});
+
+test('fingerprint is stable and tells file versions apart', () => {
+  assert.equal(fingerprint(b64('same')), fingerprint(b64('same')));
+  assert.notEqual(fingerprint(b64('one')), fingerprint(b64('two')));
+  assert.match(fingerprint(b64('x')), /^[\w-]{1,128}$/);
+});

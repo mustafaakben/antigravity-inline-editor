@@ -25,16 +25,35 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Check that dist/ matches the sources
+      - name: Check that plugin/editor.html matches the sources
         run: npm run build:check
       - name: CLI smoke test
         run: |
           node bin/cli.mjs --version
           node bin/cli.mjs doctor
 
-  install-from-git:
-    name: npx install from git (Linux)
+  view-in-browser:
+    name: View in headless Chrome
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e
+
+  install-from-git:
+    name: npx install from git (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,35 +66,7 @@ jobs:
           antigravity-inline-editor --version
           antigravity-inline-editor install
           antigravity-inline-editor status
-          test -f "$HOME/.local/share/antigravity-inline-editor/app/bin/cli.mjs"
+          test -f "$HOME/.gemini/config/plugins/inline-editor/editor.html"
+          test -f "$HOME/.gemini/config/plugins/inline-editor/plugin.json"
           antigravity-inline-editor uninstall
-          test ! -e "$HOME/.local/share/antigravity-inline-editor/app"
-
-  service-round-trip:
-    name: Service install, reinstall, uninstall (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install twice, then check the host is running
-        run: |
-          node bin/cli.mjs install
-          node bin/cli.mjs install
-          node bin/cli.mjs status > status.json
-          cat status.json
-          node -e "const s = JSON.parse(require('fs').readFileSync('status.json', 'utf8')); if (!s.host.running || !s.service.configured) { console.error('host or service not running'); process.exit(1); }"
-      - name: Uninstall and check nothing is left running
-        run: |
-          node bin/cli.mjs uninstall
-          node bin/cli.mjs status > status.json
-          cat status.json
-          node -e "const s = JSON.parse(require('fs').readFileSync('status.json', 'utf8')); if (s.host.running || s.service.configured) { console.error('host or service still present'); process.exit(1); }"
+          test ! -e "$HOME/.gemini/config/plugins/inline-editor"

@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { serviceFor } from '../../host/service/index.mjs';
-import { renderPlist, LABEL } from '../../host/service/macos.mjs';
-import { renderUnit, renderDesktopEntry } from '../../host/service/linux.mjs';
-import { renderLauncher, renderRegisterScript, TASK } from '../../host/service/windows.mjs';
-import { runtimeVersion, coreVersion } from '../../host/attach.mjs';
+import { serviceFor } from '../../bin/legacy/service/index.mjs';
+import { renderPlist, LABEL } from '../../bin/legacy/service/macos.mjs';
+import { renderUnit, renderDesktopEntry } from '../../bin/legacy/service/linux.mjs';
+import { renderLauncher, renderRegisterScript, TASK } from '../../bin/legacy/service/windows.mjs';
+import { removeLegacy, legacyDir } from '../../bin/legacy/index.mjs';
 
 const run = promisify(execFile);
 const tricky = { node: '/opt/node & co/bin/node', script: '/Users/a "b"/app/bin/cli.mjs', home: '/Users/a/data' };
@@ -57,12 +57,36 @@ test('Windows launcher hides the console and quotes paths', () => {
   assert.match(script, /-RunLevel Limited/);
 });
 
-test('versions agree across package.json, runtime, and bundle', async () => {
-  const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
-  const runtime = await readFile(new URL('../../runtime/edits-tab.js', import.meta.url), 'utf8');
-  const coreSource = await readFile(new URL('../../runtime/editor-core.js', import.meta.url), 'utf8');
-  const bundle = await readFile(new URL('../../dist/editor-core.bundle.js', import.meta.url), 'utf8');
-  assert.equal(runtimeVersion(runtime), pkg.version);
-  assert.equal(coreVersion(bundle), coreVersion(coreSource));
-  assert.ok(coreVersion(bundle) > 0);
+// The service code only remains to remove what version 0.6 installed.
+test('removeLegacy uninstalls the old service and deletes the app copy, keeping drafts', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'agy-legacy-'));
+  let configured = true;
+  const service = { status: async () => ({ configured }), uninstall: async () => { configured = false; } };
+  try {
+    await mkdir(join(dir, 'app', 'bin'), { recursive: true });
+    await writeFile(join(dir, 'drafts.json'), '{}');
+    const result = await removeLegacy({ dir, service });
+    assert.equal(result.found, true);
+    assert.equal(configured, false);
+    await assert.rejects(readFile(join(dir, 'app', 'bin')));
+    assert.equal(await readFile(join(dir, 'drafts.json'), 'utf8'), '{}');
+    assert.equal((await removeLegacy({ dir, service })).found, false);
+    await removeLegacy({ dir, service, purge: true });
+    await assert.rejects(readFile(join(dir, 'drafts.json')));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('legacyDir matches the folders version 0.6 used', () => {
+  assert.equal(legacyDir({ env: {}, platform: 'darwin', home: '/Users/a' }), '/Users/a/Library/Application Support/antigravity-inline-editor');
+  assert.equal(legacyDir({ env: { LOCALAPPDATA: 'C:\\L' }, platform: 'win32', home: 'C:\\U' }), join('C:\\L', 'antigravity-inline-editor'));
+  assert.equal(legacyDir({ env: {}, platform: 'linux', home: '/home/a' }), '/home/a/.local/share/antigravity-inline-editor');
+});
+
+test('versions agree across package.json, the plugin manifest, the server, and the view', async () => {
+  const read = path => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
+  const pkg = JSON.parse(await read('package.json'));
+  const manifest = JSON.parse(await read('plugin/plugin.json'));
+  const server = /export const VERSION = '([^']+)'/.exec(await read('plugin/server.mjs'))[1];
+  const view = /const VERSION = '([^']+)'/.exec(await read('src/main.js'))[1];
+  assert.deepEqual([manifest.version, server, view], [pkg.version, pkg.version, pkg.version]);
 });

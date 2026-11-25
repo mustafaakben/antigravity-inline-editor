@@ -1,5 +1,5 @@
-// Find and replace panel for Edits. It mirrors Antigravity's native Raw find bar (same classes
-// and icons) and drives CodeMirror's search state, so match highlighting and commands stay native.
+// Find and replace panel for Edits. It mirrors the look of Antigravity's own find bar (same layout
+// and Material Symbols icons) and drives CodeMirror's search state, so commands stay native.
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
@@ -8,7 +8,7 @@ import {
 } from "@codemirror/search";
 
 const MAX_COUNT = 1000;
-// Material Symbols paths, copied from the native find bar.
+// Material Symbols paths (Apache License 2.0).
 const ICONS = {
   case: "M146.77-262.77L304.46-687.38h61.31L524.61-262.77H464.38L424.23-377.85H246.62L206.23-262.77H146.77ZM265-428H405.62l-69-195.46h-3.23L265-428ZM655.38-253.15q-48.69,0-77.73-26.54t-29.04-68.46q0-43.23 33.92-70.38t87.150-27.150q22.23,0 44.23,4.19t38.38,11.58v-17.77q0-34-20.12-53.15T676.15-520q-21.85,0-40.27,8.35t-34.35,24.81l-36.23-28.85q23.23-24.77 50.46-36.46t61-11.69q63.23,0 94.15,30.96T801.84-440v177.23H752.31v-38.92h-4q-14.77,24.15-38.58,36.35t-54.35,12.19Zm7.38-43.23q40.39,0 65.27-26.69t24.88-64.85q-14-8-34.46-12.5t-40.23-4.5q-35.85,0-56.54,15.15T601-348.15q0,22.31 17.35,37.04t44.42,14.73Z",
   word: "M60-219V-389h60v110H840V-389h60v170H60ZM388.15-360.38v-37.08h-3.38q-13.38,22.31-35.19,34.19t-50.19,11.88q-45.92,0-72.58-24.35t-26.65-66.04q0-42 31.15-68.31t80.62-26.31q21.85,0 41.54,3.88t34.08,11.88v-17.85q0-32.77-18.690-50.690t-53-17.92q-21,0-39.31,8.04t-33.62,23.88l-33.77-27q20.15-23.54 46.46-35.23t60.46-11.69q58.92,0 89.04,29.12t30.12,85.5v174.08H388.15ZM320.62-497.46q-33.92,0-52.85,14.62t-18.92,40.69q0,22.69 15.58,36.35t40.73,13.65q35.08,0 58.73-25.58t23.65-63.35q-13.62-8-32-12.19t-34.92-4.19ZM507.54-360V-761h48.92v123.39l-3,40h2.62q7.62-11.92 29.19-28.96t60.04-17.04q58.23,0 92.54,42.54t34.31,104.85q0,61.54-33.81,103.38T644.92-351q-36.38,0-58.46-15.69T556.08-397h-2.62v37H507.54ZM639-598q-39.23,0-62.38,30.27t-23.15,70.89q0,41.23 23.15,71T639-396.08t61.35-29.19t22.12-71.58t-22.12-71.77T639-598Z",
@@ -18,11 +18,11 @@ const ICONS = {
   close: "M480-437.85L277.08-234.92q-8.31,8.31-20.88,8.5t-21.27-8.5T226.23-256t8.69-21.08L437.85-480L234.92-682.92q-8.31-8.31-8.5-20.88t8.5-21.27T256-733.77t21.08,8.69L480-522.15L682.92-725.08q8.31-8.31 20.88-8.5t21.27,8.5T733.77-704t-8.69,21.08L522.15-480L725.08-277.08q8.31,8.31 8.5,20.88t-8.5,21.27T704-226.23t-21.08-8.69L480-437.85Z",
   chevron: "M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z",
 };
-const ICON_BUTTON = "group outline-none w-6 h-6 flex shrink-0 items-center justify-center rounded-md hover:bg-secondary transition-[background] disabled:pointer-events-none disabled:opacity-30";
-const OPTION_BUTTON = "p-0.5 rounded transition-colors outline-none";
-const FIELD = "agy-field relative flex items-center bg-muted rounded-md h-7 flex-1 min-w-0 focus-within-ring";
-const INPUT = "flex-1 min-w-0 bg-transparent text-foreground !text-xs rounded-l-md truncate !ring-0 !ring-offset-0 border-none px-2 h-full placeholder:text-placeholder outline-none";
-const TEXT_BUTTON = "h-7 px-2 shrink-0 rounded-md text-xs text-foreground hover:bg-secondary transition-[background] outline-none disabled:pointer-events-none disabled:opacity-30";
+const ICON_BUTTON = "edits-find-icon";
+const OPTION_BUTTON = "edits-find-option";
+const FIELD = "edits-find-field";
+const INPUT = "edits-find-input";
+const TEXT_BUTTON = "edits-find-text";
 
 const panels = new WeakMap();
 const requested = new WeakMap();
@@ -43,7 +43,7 @@ function icon(name, size, className = "") {
   return svg;
 }
 const iconButton = (name, label, size = 16) => el("button", { type: "button", class: ICON_BUTTON, "aria-label": label, title: label },
-  [icon(name, size, "outline-none opacity-70 group-hover:opacity-100 transition-opacity")]);
+  [icon(name, size)]);
 const optionButton = (name, label) => el("button", { type: "button", class: OPTION_BUTTON, "aria-label": label, title: label, "aria-pressed": "false" }, [icon(name, 14)]);
 
 function count(state, query) {
@@ -65,27 +65,27 @@ class FindPanel {
     const query = getSearchQuery(view.state);
 
     this.toggle = iconButton("chevron", "Toggle Replace (⌥⌘F)");
-    this.toggle.classList.add("agy-find-toggle");
+    this.toggle.classList.add("edits-find-toggle");
     this.find = el("input", { type: "text", "aria-label": "Find", placeholder: "Find", class: INPUT, "main-field": "true", spellcheck: "false" });
     this.caseButton = optionButton("case", "Match Case (Aa)");
     this.wordButton = optionButton("word", "Match Whole Word (ab)");
     this.regexButton = optionButton("regex", "Use Regular Expression (.*)");
-    const options = el("div", { class: "flex items-center gap-0.5 pr-1 ml-1 pl-1" }, [this.caseButton, this.wordButton, this.regexButton]);
+    const options = el("div", { class: "edits-find-options" }, [this.caseButton, this.wordButton, this.regexButton]);
     this.findField = el("div", { class: FIELD }, [this.find, options]);
-    this.count = el("span", { class: "text-xs text-foreground opacity-70 px-0.5 min-w-[4.5rem] text-center", "aria-live": "polite", "data-testid": "find-bar-match-count" });
+    this.count = el("span", { class: "edits-find-count", "aria-live": "polite" });
     this.prev = iconButton("up", "Previous Match (Shift+Enter)");
     this.next = iconButton("down", "Next Match (Enter)");
     this.close = iconButton("close", "Close (Escape)", 14);
-    const findRow = el("div", { class: "flex items-center gap-1 px-1.5 py-1 w-full min-w-0" },
-      [this.toggle, this.findField, this.count, el("div", { class: "flex items-center gap-px" }, [this.prev, this.next]), this.close]);
+    const findRow = el("div", { class: "edits-find-row" },
+      [this.toggle, this.findField, this.count, el("div", { class: "edits-find-nav" }, [this.prev, this.next]), this.close]);
 
     this.replace = el("input", { type: "text", "aria-label": "Replace", placeholder: "Replace", class: INPUT, spellcheck: "false" });
     this.replaceOne = el("button", { type: "button", class: TEXT_BUTTON, title: "Replace (Enter)" }, ["Replace"]);
     this.replaceEvery = el("button", { type: "button", class: TEXT_BUTTON, title: "Replace All (⌘Enter)" }, ["Replace All"]);
-    this.replaceRow = el("div", { class: "flex items-center gap-1 px-1.5 pb-1 w-full min-w-0" },
-      [el("span", { class: "w-6 shrink-0" }), el("div", { class: FIELD }, [this.replace]), this.replaceOne, this.replaceEvery]);
+    this.replaceRow = el("div", { class: "edits-find-row edits-find-replace" },
+      [el("span", { class: "edits-find-spacer" }), el("div", { class: FIELD }, [this.replace]), this.replaceOne, this.replaceEvery]);
 
-    this.dom = el("div", { class: "agy-find", role: "search", "aria-label": "Find and replace" }, [findRow, this.replaceRow]);
+    this.dom = el("div", { class: "edits-find", role: "search", "aria-label": "Find and replace" }, [findRow, this.replaceRow]);
     this.dom.addEventListener("keydown", event => this.keydown(event));
     this.find.addEventListener("input", () => this.commit(true));
     this.replace.addEventListener("input", () => this.commit(false));
@@ -139,14 +139,14 @@ class FindPanel {
     this.showReplace = show && !this.view.state.readOnly;
     this.replaceRow.hidden = !this.showReplace;
     this.toggle.setAttribute("aria-expanded", String(this.showReplace));
-    this.toggle.classList.toggle("agy-find-toggle-open", this.showReplace);
+    this.toggle.classList.toggle("edits-find-toggle-open", this.showReplace);
     if (focus) (this.showReplace ? this.replace : this.find).focus();
   }
   render() {
     const { total, index } = count(this.view.state, this.query);
     const capped = total >= MAX_COUNT ? `${MAX_COUNT}+` : `${total}`;
     this.count.textContent = !this.query.search ? "" : total === 0 ? "No Results" : `${index < 0 ? "?" : index + 1} of ${capped}`;
-    this.findField.classList.toggle("agy-find-none", !!this.query.search && total === 0);
+    this.findField.classList.toggle("edits-find-none", !!this.query.search && total === 0);
     this.prev.disabled = this.next.disabled = total === 0;
     const writable = !this.view.state.readOnly;
     this.replaceOne.disabled = this.replaceEvery.disabled = total === 0 || !writable;
@@ -202,13 +202,7 @@ export function toggleFind(view, options) {
   return true;
 }
 
+// Find bar styles live in styles.css; this keeps the panel border consistent with the editor.
 export const findTheme = {
-  ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
-  ".agy-find-toggle svg": { transition: "transform 120ms ease" },
-  ".agy-find-toggle-open svg": { transform: "rotate(90deg)" },
-  ".agy-find [aria-pressed=false]": { color: "var(--muted-foreground)" },
-  ".agy-find [aria-pressed=false]:hover, .agy-find [aria-pressed=true]": { color: "var(--foreground)" },
-  ".agy-find [aria-pressed=true]": { backgroundColor: "var(--secondary)" },
-  ".agy-find-none": { boxShadow: "inset 0 0 0 1px var(--error)" },
-  ".agy-find [hidden]": { display: "none" },
+  ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--edits-border)" },
 };

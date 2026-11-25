@@ -3,28 +3,34 @@
 [![CI](https://github.com/mustafaakben/antigravity-inline-editor/actions/workflows/ci.yml/badge.svg)](https://github.com/mustafaakben/antigravity-inline-editor/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **Unofficial.** This project is not affiliated with, endorsed by, or supported by Google. "Antigravity" is used only to describe the app this tool works with. It relies on the app's internal interfaces, which can change with any update. Use it at your own risk and keep your documents under version control.
+> **Unofficial.** This project is not affiliated with, endorsed by, or supported by Google. "Antigravity" is used only to describe the app this tool works with. It uses the app's documented plugin interfaces (MCP Apps), which are new and may still change. Use it at your own risk and keep your documents under version control.
 
-An **Edits** tab for the Antigravity desktop app. Open a file in Antigravity's side panel and edit it in place, next to Preview and Raw, with autosave, find and replace, and the same Comment and Quote actions the app offers on selections.
+**Edits** is a file viewer for the Antigravity desktop app that lets you edit text and code files in place in the side panel, with autosave, find and replace, and Quote and Comment into chat.
+
+Since version 0.7, Edits is an Antigravity **plugin** built on [MCP Apps](https://antigravity.google/docs/mcp-apps), the app's official way for plugins to add UI. It no longer uses Antigravity's debugging port, which [Antigravity 2.33 stopped opening](https://antigravity.google/docs/changelog) for security reasons.
 
 ## Features
 
-- **Edit in place.** Markdown files get Preview, Raw, and Edits; code files get Raw and Edits. Line numbers, wrapping, and syntax colors match Raw and follow the app's light, dark, and custom themes.
+- **Edit in place.** Supported files open in Edits in the side panel. Markdown opens in **Preview**, with an **Edit** button to switch to the editor. Code gets line numbers and syntax colors, and follows the app's light and dark themes.
 - **Autosave.** Changes are written 0.8 seconds after you stop typing, then read back to verify. ⌘S / Ctrl+S saves immediately.
 - **Outside changes sync in.** When an agent or another app changes the file, Edits picks it up within about 2 seconds. If the disk changes while you have pending edits, you choose between **Use disk version** and **Keep mine**.
 - **Undo and redo.** ⌘Z / ⇧⌘Z (Ctrl+Z / Ctrl+Shift+Z) and toolbar buttons work across autosaves, including undoing an accidental Replace All.
-- **Find and replace.** A find bar styled like the app's own: match case, whole word, regular expressions, live match count. ⌘F finds; ⌥⌘F (Ctrl+Alt+F) adds replace.
-- **Comment and Quote.** Select text to add a pending comment (⌥⌘M) or quote it into the chat (⌘L) with the surrounding lines for context.
-- **Crash recovery.** Pending edits are kept in a private local file and restored after a reload or crash.
-- **Starts automatically.** A small background host attaches Edits to every Antigravity window, including new and reloaded ones, and waits quietly when the app is closed.
+- **Find and replace.** Match case, whole word, regular expressions, and a live match count. ⌘F finds; ⌥⌘F (Ctrl+Alt+F) adds replace.
+- **Quote and Comment.** Select text to quote it (⌘L) or comment on it (⌥⌘M). Both are attached, with the surrounding lines for context, to your next message in the conversation.
+- **Crash recovery.** Unsaved edits are kept in a private local file and restored when you reopen the file.
 
 Keyboard shortcuts are shown with macOS symbols; on Windows and Linux use Ctrl for ⌘ and Alt for ⌥.
 
+### File types
+
+Edits opens Markdown (`.md`, `.markdown`, `.mdx`), plain text and logs, JavaScript and TypeScript, JSON, Python, CSS, XML, YAML, TOML, shell scripts, and common source files (C, C++, C#, Go, Rust, Java, Kotlin, Swift, Ruby, PHP, Lua, R, SQL, LaTeX). The full list is `EXTENSIONS` in [plugin/server.mjs](plugin/server.mjs).
+
+Antigravity gives a file type to one viewer: when Edits claims a type, the app's own Preview and Raw views no longer appear for it. That is why Edits brings its own Markdown Preview, and why it leaves HTML, SVG, CSV, and TSV to Antigravity's native viewer.
+
 ## Requirements
 
-- [Node.js](https://nodejs.org) 22.4 or newer (also needed for `npx`)
-- The Antigravity desktop app
-- macOS or Windows (tested live); Linux is experimental (see [compatibility](docs/compatibility.md))
+- The Antigravity desktop app, version **2.34 or newer** (MCP Apps support)
+- [Node.js](https://nodejs.org) 22.4 or newer to run the installer. The plugin's server runs on Antigravity's bundled Node.js when `node` is not on your path.
 
 ## Installation
 
@@ -36,8 +42,6 @@ The repository is private for now, so both methods need access to it on GitHub.
 npx github:mustafaakben/antigravity-inline-editor install
 ```
 
-If you use a version manager such as nvm, run `install` again after switching Node versions, because the login service remembers the Node path it was installed with.
-
 **From a clone:**
 
 ```sh
@@ -46,32 +50,30 @@ cd antigravity-inline-editor
 node bin/cli.mjs install
 ```
 
-Either way, `install` copies the app into your user folder, registers a login service, and attaches Edits to the Antigravity windows that are already open. If Antigravity is closed, Edits appears as soon as you open it. You can delete the clone afterwards.
+`install` copies the plugin to `~/.gemini/config/plugins/inline-editor`, where Antigravity finds it automatically. If you used version 0.6 or earlier, it also removes the old background host and its login service.
 
-| OS | Login service | App folder |
-|---|---|---|
-| macOS | LaunchAgent `antigravity-inline-editor` | `~/Library/Application Support/antigravity-inline-editor` |
-| Windows | Task Scheduler task `antigravity-inline-editor` (Startup folder if blocked) | `%LOCALAPPDATA%\antigravity-inline-editor` |
-| Linux | systemd user service (XDG autostart without systemd) | `~/.local/share/antigravity-inline-editor` |
+If Antigravity was already open, **quit and reopen it once** so it starts the plugin's server. Then open a supported file in the side panel. The plugin appears as **Edits** under **Customizations → Installed**.
 
 ## Usage
 
-Open any text file in Antigravity's side panel and choose **Edits**. The status at the top reads **Saving…** while a write is pending and **Saved** once it is on disk.
+Open a supported file in the side panel. Markdown opens in Preview; choose **Edit** to change it. The status at the top reads **Saving…** while a write is pending and **Saved** once it is on disk.
 
 ```sh
-antigravity-inline-editor status      # service, host, and Edits version per window
-antigravity-inline-editor doctor      # what discovery found, for troubleshooting
+antigravity-inline-editor status      # plugin version, Antigravity version, leftovers from 0.6
+antigravity-inline-editor doctor      # paths and checks, for troubleshooting
 ```
 
-If you installed from a clone without a global command, run `node bin/cli.mjs <command>` from the clone, or `node "<app folder>/app/bin/cli.mjs" <command>`.
+If you installed from a clone, run `node bin/cli.mjs <command>` from the clone.
 
-### Finding Antigravity
+### Limits
 
-The host finds the app on its own. Antigravity records its local debugging port in a file named `DevToolsActivePort` inside its user-data folder; the host reads that file on every connection, so app restarts and new windows are picked up without any setup. If Antigravity keeps its data somewhere unusual, set `ANTIGRAVITY_USER_DATA_DIR` to that folder before running `install`. `doctor` shows every folder it searched.
+- Files up to 10 MB of UTF-8 text. Edits refuses files with mixed line endings rather than change them.
+- Images in the Markdown Preview do not load, because the view's security policy blocks web and relative image paths. Images embedded as `data:` URIs do.
+- Quote and Comment add one attachment to your next message; **Clear** in the footer removes it. They are not Antigravity's native review comments, which plugins cannot create.
 
 ## Updating
 
-Run the install command again. A window with unsaved edits keeps the previous version until those edits are saved, so nothing in progress is lost.
+Run the install command again. Then restart the plugin's server from **Customizations → Installed → Edits**, or restart Antigravity.
 
 ## Uninstalling
 
@@ -79,15 +81,15 @@ Run the install command again. A window with unsaved edits keeps the previous ve
 npx github:mustafaakben/antigravity-inline-editor uninstall
 ```
 
-This stops the host, removes the login service, removes Edits from open windows, and deletes the app folder's `app/` copy. Recovery drafts are kept; add `--purge` to delete them too.
+This removes the plugin, so the affected file types go back to Antigravity's own viewer. Recovery drafts are kept; add `--purge` to delete them too.
 
 ## How it works
 
-The host connects to Antigravity's local debugging port and loads two scripts into each window: a CodeMirror 6 editor bundle and the Edits tab. The tab reads and writes files through the same file service that Preview and Raw use, adds comments to the app's own pending-comment list, and inserts quotes as native chat chips. Nothing in the installed app is modified. See [docs/how-it-works.md](docs/how-it-works.md) for the architecture and the internal interfaces it depends on.
+The plugin's MCP server registers a tool with a `file` entrypoint for the supported extensions. When you open one of those files, Antigravity renders the plugin's view (`plugin/editor.html`, a CodeMirror 6 editor) in an isolated frame and hands it an opaque URI for the file. The view reads and writes the file through Antigravity, and Antigravity does the file access itself. See [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Privacy and security
 
-Everything runs on your computer. The host talks only to Antigravity's loopback debugging port and never sends data over the network. Recovery drafts may contain document text and are stored with owner-only permissions. Access to the debugging port gives full control of the app, so the host never exposes it beyond your machine. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+Everything runs on your computer. The view runs in Antigravity's sandboxed frame with no network access, and it can only read and write the one file Antigravity opened it for. The plugin's server never touches your files; it only stores recovery drafts, which may contain document text, in `~/.gemini/antigravity/plugin_data/inline-editor/drafts.json` with owner-only permissions. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Contributing
 
@@ -95,4 +97,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Run `npm ci && npm run check` before ope
 
 ## License
 
-[MIT](LICENSE). Bundled third-party software is listed in [dist/THIRD_PARTY_LICENSES.txt](dist/THIRD_PARTY_LICENSES.txt).
+[MIT](LICENSE). Bundled third-party software is listed in [plugin/THIRD_PARTY_LICENSES.txt](plugin/THIRD_PARTY_LICENSES.txt).

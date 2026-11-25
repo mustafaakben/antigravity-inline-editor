@@ -1,7 +1,7 @@
 {
   "name": "antigravity-inline-editor",
-  "version": "0.6.1",
-  "description": "Unofficial inline editor for the Antigravity desktop app: an Edits tab with autosave, find and replace, and Comment/Quote on selections.",
+  "version": "0.7.0",
+  "description": "Unofficial Edits file viewer for the Antigravity desktop app: an MCP Apps plugin that edits text and code in place with autosave, find and replace, and Quote and Comment into chat.",
   "license": "MIT",
   "author": "Mustafa Akben",
   "type": "module",
@@ -10,9 +10,7 @@
   },
   "files": [
     "bin/",
-    "host/",
-    "runtime/",
-    "dist/",
+    "plugin/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -28,7 +26,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:check": "node scripts/build.mjs --check",
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node --test \"test/unit/**/*.test.mjs\"",
+    "test:e2e": "node --test test/e2e/view.e2e.mjs",
     "check": "npm test && npm run build:check"
   },
   "repository": {
@@ -37,25 +36,28 @@
   },
   "keywords": [
     "antigravity",
+    "mcp-apps",
     "editor",
     "codemirror",
     "markdown",
     "autosave"
   ],
   "devDependencies": {
-    "codemirror": "6.0.2",
-    "@codemirror/state": "6.7.6",
-    "@codemirror/view": "6.43.15",
     "@codemirror/commands": "6.11.1",
-    "@codemirror/search": "6.7.2",
-    "@codemirror/language": "6.13.1",
-    "@lezer/highlight": "1.2.5",
-    "@codemirror/lang-javascript": "6.2.5",
-    "@codemirror/lang-json": "6.0.2",
-    "@codemirror/lang-python": "6.2.1",
-    "@codemirror/lang-markdown": "6.5.2",
     "@codemirror/lang-css": "6.3.1",
     "@codemirror/lang-html": "6.4.12",
-    "esbuild": "0.28.2"
+    "@codemirror/lang-javascript": "6.2.5",
+    "@codemirror/lang-json": "6.0.2",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/lang-python": "6.2.1",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/search": "6.7.2",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@lezer/highlight": "1.2.5",
+    "@modelcontextprotocol/ext-apps": "2.0.4",
+    "codemirror": "6.0.2",
+    "esbuild": "0.28.2",
+    "markdown-it": "15.0.3"
   }
 }

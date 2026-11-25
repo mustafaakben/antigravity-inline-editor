@@ -1,16 +1,25 @@
 # Compatibility
 
-"Live" means the Edits tab was exercised inside a running Antigravity app. "CI" means automated tests on GitHub Actions, which cannot run Antigravity.
+"Live" means Edits was exercised inside a running Antigravity app. "Browser" means the view ran in headless Chrome against a mock MCP Apps host (`npm run test:e2e`). "CI" means automated tests on GitHub Actions, which cannot run Antigravity.
+
+## Version 0.7 (plugin)
 
 | OS | Antigravity | Status | Evidence |
 |---|---|---|---|
-| macOS 27.2 (Apple silicon) | 2.29.0 (Electron 44.5.1) | Supported | Live: install from npx and from a clone, automatic attach after reloads, autosave, disk sync, conflicts, undo/redo, find and replace, Comment, Quote, crash recovery, uninstall. CI: unit tests. |
-| Windows 11 Pro (build 26200) | 2.28.2 (Electron 44.5.1) | Supported | Live: install from npx, Task Scheduler host, discovery under `%APPDATA%\Antigravity`, automatic attach to a new window, loading and autosaving a `C:` file with CRLF line endings kept, undo, disk sync, find bar, crash recovery, uninstall. Tested on an administrator account. CI: unit tests. |
-| Linux (Ubuntu 24.04 under WSL 2) | not tested live | Experimental | Live without Antigravity: systemd user service install, host waiting for the app, uninstall, and the Node version check. CI: unit tests and packaged install and uninstall. A live test with Antigravity running on a Linux desktop is still needed. |
+| macOS 27.2 (Apple silicon) | 2.35.1 | Supported | Live: plugin discovered and its server started after an app restart; supported files open in Edits. Browser: load, autosave, CRLF and BOM kept, disk sync, conflicts, undo across saves, find, Quote, crash recovery, Preview, read-only mode. CI: unit tests. |
+| Windows | 2.34 or newer | Not tested live | The plugin uses no OS-specific code. CI: unit tests and install round trip. |
+| Linux | 2.34 or newer | Not tested live | As Windows. |
 
-Node.js 22.4 or newer is required on every OS, including for `npx` (older npm versions bundled with Node 18 cannot run a package straight from GitHub). CI runs Node 22 and 24.
+Antigravity 2.34.0 is the first version that renders MCP Apps views. Versions before 2.33 still work with Edits 0.6.
 
-On Windows, remote testing could not send keystrokes to a background window, so typing was simulated through the editor's DOM; everything after the keystroke (autosave, conflict checks, file encoding) ran the real code path.
+## Version 0.6 (debugging-port host)
+
+Version 0.6 attached to Antigravity's debugging port. Antigravity 2.33.0 stopped opening that port at startup, so 0.6 does not work with 2.33 or newer.
+
+| OS | Antigravity | Status |
+|---|---|---|
+| macOS 27.2 | 2.29.0 | Worked (live) |
+| Windows 11 Pro | 2.28.2 | Worked (live) |
 
 ## Reporting results
 
