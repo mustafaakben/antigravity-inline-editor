@@ -90,7 +90,7 @@ The plugin's MCP server registers a tool with a `file` entrypoint for the suppor
 
 ## Privacy and security
 
-Everything runs on your computer. The view runs in Antigravity's sandboxed frame with no network access, and it can only read and write the one file Antigravity opened it for. The plugin's server never touches your files; it only stores recovery drafts, which may contain document text, in `~/.gemini/antigravity/plugin_data/inline-editor/drafts.json` with owner-only permissions. See [SECURITY.md](SECURITY.md) to report a vulnerability.
+Everything runs on your computer. The view runs in Antigravity's sandboxed frame; its only network request is for the Google Sans font, from the same Google Fonts address Antigravity itself uses, and it can only read and write the one file Antigravity opened it for. The plugin's server never touches your files; it only stores recovery drafts, which may contain document text, in `~/.gemini/antigravity/plugin_data/inline-editor/drafts.json` with owner-only permissions. See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Contributing
 

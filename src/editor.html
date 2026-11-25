@@ -7,39 +7,37 @@
 <style>/*STYLES*/</style>
 </head>
 <body>
-<main id="edits" class="edits" data-ready="false">
+<main id="edits" class="edits" data-ready="false" data-mode="edit">
   <div class="edits-toolbar">
-    <div id="modes" class="edits-modes" role="group" aria-label="View" hidden>
-      <button id="mode-preview" type="button" aria-pressed="false">Preview</button>
-      <button id="mode-edit" type="button" aria-pressed="true">Edit</button>
-    </div>
     <span id="status" class="edits-status" role="status" aria-live="polite"></span>
-    <div id="conflict" class="edits-conflict" hidden>
-      <button id="use-disk" type="button" class="edits-action" title="Discard your edits and show the file as it is on disk">Use disk version</button>
-      <button id="keep-mine" type="button" class="edits-action edits-primary" title="Write your version over the disk changes">Keep mine</button>
+    <div id="conflict" class="edits-group" hidden>
+      <button id="use-disk" type="button" class="edits-button" title="Discard your edits and show the file as it is on disk">Use disk version</button>
+      <button id="keep-mine" type="button" class="edits-button edits-primary" title="Write your version over the disk changes">Keep mine</button>
     </div>
-    <div id="restored" class="edits-conflict" hidden>
-      <button id="discard-restored" type="button" class="edits-action" title="Drop the restored edits and show the file as it is on disk">Discard</button>
-      <button id="save-restored" type="button" class="edits-action edits-primary" title="Write the restored edits to the file">Save</button>
+    <div id="restored" class="edits-group" hidden>
+      <button id="discard-restored" type="button" class="edits-button" title="Drop the restored edits and show the file as it is on disk">Discard</button>
+      <button id="save-restored" type="button" class="edits-button edits-primary" title="Write the restored edits to the file">Save</button>
     </div>
-    <div class="edits-history">
+    <div class="edits-tools">
       <button id="undo" type="button" class="edits-icon" aria-label="Undo" disabled>
         <svg width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
       </button>
       <button id="redo" type="button" class="edits-icon" aria-label="Redo" disabled>
         <svg width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
       </button>
+      <button id="find" type="button" class="edits-icon" aria-label="Find" aria-pressed="false">
+        <svg width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></svg>
+      </button>
     </div>
-    <div id="attach-actions" class="edits-conflict" hidden>
-      <button id="toolbar-quote" type="button" class="edits-action" disabled>Quote</button>
-      <button id="toolbar-comment" type="button" class="edits-action" disabled>Comment</button>
+    <div id="modes" class="edits-modes" role="group" aria-label="View" hidden>
+      <button id="mode-preview" type="button" aria-pressed="false">Preview</button>
+      <button id="mode-edit" type="button" aria-pressed="true">Edit</button>
     </div>
-    <button id="find" type="button" class="edits-action" aria-pressed="false">Find</button>
   </div>
   <div id="code" class="edits-code"></div>
   <article id="preview" class="edits-preview"></article>
   <div id="empty" class="edits-empty"><p id="empty-text">Loading…</p></div>
-  <footer id="footer" class="edits-footer">
+  <footer id="footer" class="edits-footer" hidden>
     <span id="hint" class="edits-hint"></span>
     <span id="attached" class="edits-attached" hidden>
       <span id="attached-label"></span>
@@ -47,14 +45,16 @@
     </span>
   </footer>
   <div id="selection" class="edits-selection" hidden>
-    <button id="comment" type="button">Comment</button>
-    <button id="quote" type="button">Quote</button>
+    <div class="edits-pill">
+      <button id="comment" type="button"><span>Comment</span><span class="edits-key" data-preview-key="C"></span></button>
+      <button id="quote" type="button"><span>Quote</span><span class="edits-key" data-preview-key="Q"></span></button>
+    </div>
   </div>
   <div id="composer" class="edits-composer" role="dialog" aria-label="Comment on selection" hidden>
-    <textarea id="composer-input" rows="3" placeholder="Write a comment..." aria-label="Comment"></textarea>
+    <textarea id="composer-input" rows="1" placeholder="Leave a comment" aria-label="Comment"></textarea>
     <div class="edits-composer-actions">
-      <button id="composer-cancel" type="button" class="edits-action">Cancel</button>
-      <button id="composer-submit" type="button" class="edits-action edits-primary">Comment</button>
+      <button id="composer-cancel" type="button" class="edits-text-button">Cancel</button>
+      <button id="composer-submit" type="button" class="edits-pill-button" disabled>Add Comment</button>
     </div>
   </div>
 </main>

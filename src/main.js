@@ -5,7 +5,7 @@
 import { App, applyDocumentTheme, applyHostStyleVariables, applyHostFonts } from '@modelcontextprotocol/ext-apps/app-with-deps';
 import { create } from './editor-core.js';
 import { decode, encode, fingerprint, formatQuote, formatComment, contextBlocks, attachmentLabel } from './text.js';
-import { isMarkdown, renderMarkdown } from './preview.js';
+import { isMarkdown, renderMarkdown, COPIED_ICON } from './preview.js';
 import { DEBUG, debug, debugSink } from './debug.js';
 
 const VERSION = '0.7.0';
@@ -25,7 +25,6 @@ const ui = {
   restored: $('restored'), discardRestored: $('discard-restored'), saveRestored: $('save-restored'),
   empty: $('empty'), emptyText: $('empty-text'),
   modes: $('modes'), modePreview: $('mode-preview'), modeEdit: $('mode-edit'), preview: $('preview'),
-  attachActions: $('attach-actions'), toolbarQuote: $('toolbar-quote'), toolbarComment: $('toolbar-comment'),
 };
 
 const state = {
@@ -67,13 +66,13 @@ function render() {
   const busy = state.saving || dirty();
   const text = !state.file ? '' : state.loading && !state.loaded ? 'Loading…' : state.conflict || state.error ? state.message :
     !state.canWrite ? 'Read only' : state.restored && dirty() ? 'Restored unsaved edits' : busy ? 'Saving…' : 'Saved';
-  ui.status.textContent = text;
+  // Like the native viewer, Preview stays quiet unless something needs attention.
+  ui.status.textContent = state.mode === 'preview' && ['Saved', 'Read only'].includes(text) ? '' : text;
   ui.status.title = text === 'Saved' ? 'Saved and verified on disk' :
     text === 'Read only' ? 'Antigravity does not allow writing this file from here.' : '';
   ui.status.dataset.error = String(state.error);
   ui.conflict.hidden = !state.conflict;
   ui.restored.hidden = !(state.restored && dirty() && !state.conflict && state.canWrite);
-  ui.attachActions.hidden = !state.canAttach || !state.loaded;
   ui.empty.hidden = !!(state.file && (state.loaded || state.loading));
   ui.root.dataset.ready = String(state.loaded);
   ui.root.dataset.mode = state.mode;
@@ -86,10 +85,10 @@ function render() {
   ui.attached.hidden = !count || state.attachmentsStale;
   ui.attachedLabel.textContent = count === 1 ? '1 item attached to your next message' : `${count} items attached to your next message`;
   ui.footer.dataset.error = String(!!state.notice?.error);
-  ui.hint.textContent = state.notice ? state.notice.text : state.mode === 'preview' ? 'Preview · Choose Edit to change the file' :
-    `Changes save automatically · ${keys('⌘F')} Find · ${keys('⌥⌘F')} Replace` +
-    (state.canAttach ? ' · Select text to Quote or Comment' : '');
-  if (state.mode === 'preview' && !state.notice && state.canAttach) ui.hint.textContent += ' · Select text to Quote or Comment';
+  ui.hint.textContent = state.notice?.text ?? '';
+  // The footer only appears for notices and pending attachments; the native viewer has none.
+  ui.footer.hidden = !state.notice && ui.attached.hidden;
+  for (const el of ui.popup.querySelectorAll('[data-preview-key]')) el.textContent = state.mode === 'preview' ? el.dataset.previewKey : '';
 }
 
 function updateHistory() {
@@ -371,6 +370,8 @@ function openComposer() {
   hideSelection();
   ui.composer.hidden = false;
   ui.composerInput.value = '';
+  ui.composerInput.style.height = '';
+  ui.submit.disabled = true;
   place(ui.composer, sel.rect);
   ui.composerInput.focus();
 }
@@ -408,13 +409,7 @@ function updatePreviewSelection() {
   ui.popup.hidden = false;
   place(ui.popup, sel.rect);
 }
-function updateToolbarActions() {
-  const has = !!(state.loaded && state.canAttach && currentSelection());
-  ui.toolbarQuote.disabled = ui.toolbarComment.disabled = !has;
-}
-
 function updateSelection() {
-  updateToolbarActions();
   if (state.mode === 'preview') return updatePreviewSelection();
   const sel = state.loaded && state.canAttach && ui.composer.hidden && editor.hasFocus && editor.selection();
   if (DEBUG && editor.selection()) debug('selection', { loaded: state.loaded, canAttach: state.canAttach, composer: ui.composer.hidden, focus: editor.hasFocus, rect: sel?.rect, mode: state.mode });
@@ -427,10 +422,9 @@ function updateSelection() {
 // ---- Events ------------------------------------------------------------------------------------
 
 for (const [el, label] of [[ui.undo, 'Undo (⌘Z)'], [ui.redo, 'Redo (⇧⌘Z)'], [ui.find, 'Find (⌘F) · Replace (⌥⌘F)'],
-  [ui.comment, 'Comment on the selection'], [ui.quote, 'Quote the selection in your next message'],
-  [ui.toolbarComment, 'Comment on the selection'], [ui.toolbarQuote, 'Quote the selection in your next message']]) el.title = keys(label);
+  [ui.comment, 'Comment on the selection'], [ui.quote, 'Quote the selection in your next message']]) el.title = keys(label);
 for (const el of ui.root.querySelectorAll('[data-keys]')) el.textContent = keys(el.dataset.keys);
-for (const el of [ui.popup, ui.undo, ui.redo, ui.attachActions])
+for (const el of [ui.popup, ui.undo, ui.redo])
   for (const type of ['mousedown', 'pointerdown']) el.addEventListener(type, event => event.preventDefault(), { capture: true });
 ui.undo.addEventListener('click', () => editor.undo());
 ui.redo.addEventListener('click', () => editor.redo());
@@ -454,8 +448,37 @@ ui.useDisk.addEventListener('click', useDisk);
 ui.keepMine.addEventListener('click', keepMine);
 ui.quote.addEventListener('click', quote);
 ui.comment.addEventListener('click', openComposer);
-ui.toolbarQuote.addEventListener('click', quote);
-ui.toolbarComment.addEventListener('click', openComposer);
+// Copy buttons on Preview code blocks.
+ui.preview.addEventListener('click', async event => {
+  const button = event.target.closest('.edits-copy');
+  if (!button) return;
+  const code = button.closest('.edits-codeblock')?.querySelector('code')?.textContent ?? '';
+  let copied = false;
+  try { await navigator.clipboard.writeText(code); copied = true; } catch {
+    const area = Object.assign(document.createElement('textarea'), { value: code });
+    document.body.append(area); area.select();
+    try { copied = document.execCommand('copy'); } catch { /* not allowed */ }
+    area.remove();
+  }
+  if (!copied) return notice('Copying is not allowed here.', true);
+  const icon = button.innerHTML;
+  button.innerHTML = COPIED_ICON;
+  setTimeout(() => { button.innerHTML = icon; }, 1000);
+});
+// Preview has no text input, so single keys work like the native viewer: C comments, Q quotes.
+window.addEventListener('keydown', event => {
+  if (state.mode !== 'preview' || event.metaKey || event.ctrlKey || event.altKey || !ui.composer.hidden) return;
+  const key = event.key.toLowerCase();
+  if ((key !== 'c' && key !== 'q') || !previewSelection()) return;
+  event.preventDefault();
+  if (key === 'c') openComposer(); else quote();
+});
+// The comment box grows with its text, and Add Comment needs some.
+ui.composerInput.addEventListener('input', () => {
+  ui.submit.disabled = !ui.composerInput.value.trim();
+  ui.composerInput.style.height = 'auto';
+  ui.composerInput.style.height = `${Math.min(300, ui.composerInput.scrollHeight)}px`;
+});
 // Preview selections: CodeMirror reports its own, the rendered Markdown needs the document's.
 document.addEventListener('selectionchange', () => { if (state.mode === 'preview') queueMicrotask(updateSelection); });
 ui.preview.addEventListener('scroll', () => { if (!ui.popup.hidden) updatePreviewSelection(); });
@@ -497,10 +520,24 @@ window.addEventListener('blur', () => {
 
 // ---- Host connection ---------------------------------------------------------------------------
 
+// Antigravity's Google Sans option: load the same web font the app uses (declared in the view's
+// CSP by the server) and apply the app's own variable-font settings (styles.css).
+const GOOGLE_SANS_URL = 'https://fonts.googleapis.com/css2?family=Google+Sans:ital,wght@0,400..700;1,400..700&family=Google+Sans+Flex:ROND,opsz,slnt,wdth,wght@0..100,6..144,-10..0,92..100,100..1000&display=swap';
+function applyFont(fontFamily) {
+  const googleSans = /google sans/i.test(fontFamily || '');
+  if (googleSans) document.body.dataset.agyFont = 'google-sans'; else delete document.body.dataset.agyFont;
+  if (googleSans && !document.getElementById('google-sans')) {
+    document.head.append(Object.assign(document.createElement('link'), { id: 'google-sans', rel: 'stylesheet', href: GOOGLE_SANS_URL }));
+  }
+}
+
 function applyContext(context) {
   if (!context) return;
   if (context.theme) applyDocumentTheme(context.theme);
-  if (context.styles?.variables) applyHostStyleVariables(context.styles.variables);
+  if (context.styles?.variables) {
+    applyHostStyleVariables(context.styles.variables);
+    applyFont(context.styles.variables['--font-sans']);
+  }
   if (context.styles?.css?.fonts) applyHostFonts(context.styles.css.fonts);
   if (context[RESOURCES_KEY]) state.canWrite = !!context[RESOURCES_KEY].write;
 }
@@ -536,11 +573,13 @@ if (DEBUG) {
   app.fallbackRequestHandler = async request => { debug('host.request', request); return {}; };
   window.addEventListener('focus', () => debug('window.focus', {}));
   window.addEventListener('blur', () => debug('window.blur', {}));
-  for (const id of ['quote', 'comment', 'composer-submit', 'toolbar-quote', 'toolbar-comment']) document.getElementById(id).addEventListener('click', () => debug(`click.${id}`, {}), { capture: true });
+  for (const id of ['quote', 'comment', 'composer-submit']) document.getElementById(id).addEventListener('click', () => debug(`click.${id}`, {}), { capture: true });
 }
 try {
   await app.connect();
   debug('connected', { hostInfo: app.getHostVersion(), caps: app.getHostCapabilities(), contextKeys: Object.keys(app.getHostContext() ?? {}), resources: app.getHostContext()?.['com.google.antigravity/resources'], displayMode: app.getHostContext()?.displayMode });
+  debug('styles', app.getHostContext()?.styles);
+  debug('theme', { theme: app.getHostContext()?.theme, platform: app.getHostContext()?.platform, scheme: getComputedStyle(document.documentElement).colorScheme });
   applyContext(app.getHostContext());
   refreshCapabilities();
   if (!state.file) ui.emptyText.textContent = 'Open a text file from the side panel to edit it here.';

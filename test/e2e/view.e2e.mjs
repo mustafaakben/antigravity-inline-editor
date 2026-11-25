@@ -262,7 +262,7 @@ e2e('Quote and Comment work on a selection in the Markdown preview', async () =>
     const range = doc.createRange(); range.selectNodeContents(p);
     const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); return true; })()`);
   await waitFor(`!${V}.getElementById('selection').hidden`);
-  assert.equal(await page.eval(`${V}.getElementById('toolbar-quote').disabled`), false);
+  assert.equal(await page.eval(`${V}.querySelector('#quote .edits-key').textContent`), 'Q', 'Preview shows single-key shortcuts');
   await click('#quote');
   await waitFor('!!host.context');
   const text = await page.eval('host.context.content[0].text');
@@ -272,7 +272,7 @@ e2e('Quote and Comment work on a selection in the Markdown preview', async () =>
   await page.eval(`(() => { const doc = ${V}; const h = doc.querySelector('#preview h1');
     const range = doc.createRange(); range.selectNodeContents(h);
     const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); return true; })()`);
-  await click('#toolbar-comment');
+  await key('c', 'KeyC');
   await waitFor(`!${V}.getElementById('composer').hidden`);
   await type('Shorter title');
   await click('#composer-submit');
@@ -285,29 +285,30 @@ e2e('attachments start over after the user leaves the pane', async () => {
   await click('.cm-line');
   await key('Home', 'Home');
   await key('End', 'End', 8);
-  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
-  await click('#toolbar-quote');
+  await waitFor(`!${V}.getElementById('selection').hidden`);
+  await click('#quote');
   await waitFor('!!host.context');
   await page.eval(`document.getElementById('view').contentWindow.dispatchEvent(new Event('blur')); true`);
   await waitFor(`${V}.getElementById('attached').hidden`);
   await click('.cm-line:nth-child(2)');
   await key('Home', 'Home');
   await key('End', 'End', 8);
-  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
-  await click('#toolbar-quote');
+  await waitFor(`!${V}.getElementById('selection').hidden`);
+  await click('#quote');
   await waitFor('host.context.content[0].text.includes("<selection>two</selection>")');
   assert.doesNotMatch(await page.eval('host.context.content[0].text'), /<selection>one<\/selection>/);
 });
 
-e2e('the toolbar Quote button works in the editor', async () => {
-  await openFile('notes.txt', 'one\ntwo\n');
-  await click('.cm-line');
-  await key('Home', 'Home');
-  await key('End', 'End', 8);
-  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
-  await click('#toolbar-quote');
+e2e('Q quotes a Preview selection, and code blocks get a header with a copy button', async () => {
+  await openFile('code.md', '# Code\n\n```python\ndef f():\n    return 1\n```\n');
+  assert.equal(await page.eval(`${V}.querySelector('.edits-codeblock-header span').textContent`), 'python');
+  assert.ok(await page.eval(`${V}.querySelectorAll('.edits-codeblock .tok-keyword').length`) > 0, 'code is highlighted');
+  await page.eval(`(() => { const doc = ${V}; const h = doc.querySelector('#preview h1');
+    const range = doc.createRange(); range.selectNodeContents(h);
+    const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); return true; })()`);
+  await key('q', 'KeyQ');
   await waitFor('!!host.context');
-  assert.match(await page.eval('host.context.content[0].text'), /<selection>one<\/selection>/);
+  assert.match(await page.eval('host.context.content[0].text'), /<selection>Code<\/selection>/);
 });
 
 e2e('Markdown opens in Preview and switches to Edit', async () => {
@@ -318,7 +319,8 @@ e2e('Markdown opens in Preview and switches to Edit', async () => {
   assert.ok(await page.eval(`${V}.getElementById('preview').getBoundingClientRect().height`) > 300);
   assert.ok(await page.eval(`${V}.querySelector('#preview h1').getBoundingClientRect().height`) > 0);
   assert.equal(await page.eval(`${V}.getElementById('code').getBoundingClientRect().height`), 0);
-  assert.equal(await page.eval(`${V}.querySelectorAll('#preview input[type=checkbox]').length`), 2);
+  assert.equal(await page.eval(`${V}.querySelectorAll('#preview .edits-task').length`), 2);
+  assert.equal(await page.eval(`${V}.querySelectorAll('#preview .task-checked-content').length`), 1);
   assert.equal(await page.eval(`${V}.querySelector('#preview script')`), null, 'raw HTML is escaped');
   await click('#mode-edit');
   await waitFor(`${V}.getElementById('edits').dataset.mode === 'edit'`);

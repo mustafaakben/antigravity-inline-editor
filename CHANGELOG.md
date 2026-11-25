@@ -21,7 +21,8 @@ Edits is now an Antigravity plugin. Antigravity 2.33 stopped opening the local d
 
 ### Added
 - A Markdown **Preview** inside Edits, since claiming `.md` replaces Antigravity's own Preview. Markdown files open in Preview with an **Edit** button.
-- Quote and Comment work on selections in the Preview, mapped to source lines, and from toolbar buttons as well as the selection popup.
+- Quote and Comment work on selections in the Preview, mapped to source lines. In Preview, C comments and Q quotes, like Antigravity's own viewer.
+- The Preview, selection popup, and comment box follow Antigravity's native look: its theme tokens, Google Sans Flex settings, round task markers, framed tables, code blocks with a language header, copy button, and syntax colors, and links with an open-in-new icon.
 - Browser tests of the view against a mock MCP Apps host (`npm run test:e2e`).
 
 ### Removed

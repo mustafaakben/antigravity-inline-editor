@@ -39,6 +39,7 @@ test('resources/read serves the view as an MCP App document', async () => withSt
   const handle = createServer({ html: async () => '<!doctype html><p>view</p>', store });
   const { result } = await rpc(handle, 'resources/read', { uri: UI_URI });
   assert.equal(result.contents[0].mimeType, MIME);
+  assert.deepEqual(result.contents[0]._meta.ui.csp.resourceDomains, ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']);
   assert.equal(result.contents[0].text, '<!doctype html><p>view</p>');
   assert.equal((await rpc(handle, 'resources/read', { uri: 'ui://other' })).error.code, -32002);
   assert.equal((await rpc(handle, 'resources/list')).result.resources[0].uri, UI_URI);

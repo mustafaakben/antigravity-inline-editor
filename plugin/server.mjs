@@ -139,7 +139,10 @@ export function createServer({ html, store }) {
     save_draft: async ({ name, baseHash, draft, position }) => result({ saved: await store.save(name, baseHash, draft, position) }, 'Draft stored.'),
     clear_draft: async ({ name, baseHash }) => result({ cleared: await store.clear(name, baseHash) }, 'Draft cleared.'),
   };
-  const resource = { uri: UI_URI, name: 'Edits', mimeType: MIME, _meta: { ui: { prefersBorder: false } } };
+  // The only outside resource: Google Sans, from the same address Antigravity loads it from, so
+  // the view's text matches the app when the user picked that font. No other network access.
+  const resource = { uri: UI_URI, name: 'Edits', mimeType: MIME, _meta: { ui: { prefersBorder: false,
+    csp: { resourceDomains: ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'] } } } };
   const methods = {
     initialize: ({ protocolVersion } = {}) => ({
       protocolVersion: PROTOCOL_VERSIONS.includes(protocolVersion) ? protocolVersion : PROTOCOL_VERSIONS[0],
