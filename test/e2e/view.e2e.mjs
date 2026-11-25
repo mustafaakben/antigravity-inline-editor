@@ -260,6 +260,10 @@ e2e('Markdown opens in Preview and switches to Edit', async () => {
   await openFile('readme.md', '# Hello\n\n- [x] done\n- [ ] todo\n\n<script>parent.pwned = 1</script>\n\n[site](https://example.com)\n');
   assert.equal(await page.eval(`${V}.getElementById('edits').dataset.mode`), 'preview');
   assert.equal(await page.eval(`${V}.querySelector('#preview h1').textContent`), 'Hello');
+  // Visible, not just present: the preview fills the space and the editor is hidden.
+  assert.ok(await page.eval(`${V}.getElementById('preview').getBoundingClientRect().height`) > 300);
+  assert.ok(await page.eval(`${V}.querySelector('#preview h1').getBoundingClientRect().height`) > 0);
+  assert.equal(await page.eval(`${V}.getElementById('code').getBoundingClientRect().height`), 0);
   assert.equal(await page.eval(`${V}.querySelectorAll('#preview input[type=checkbox]').length`), 2);
   assert.equal(await page.eval(`${V}.querySelector('#preview script')`), null, 'raw HTML is escaped');
   await click('#mode-edit');
