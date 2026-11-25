@@ -20,7 +20,8 @@ const ui = {
   undo: $('undo'), redo: $('redo'), find: $('find'), code: $('code'), footer: $('footer'), hint: $('hint'),
   attached: $('attached'), attachedLabel: $('attached-label'), clearAttached: $('clear-attached'),
   popup: $('selection'), comment: $('comment'), quote: $('quote'),
-  composer: $('composer'), composerInput: $('composer-input'), cancel: $('composer-cancel'),
+  composer: $('composer'), composerInput: $('composer-input'), cancel: $('composer-cancel'), submit: $('composer-submit'),
+  restored: $('restored'), discardRestored: $('discard-restored'), saveRestored: $('save-restored'),
   empty: $('empty'), emptyText: $('empty-text'),
   modes: $('modes'), modePreview: $('mode-preview'), modeEdit: $('mode-edit'), preview: $('preview'),
 };
@@ -31,6 +32,9 @@ const state = {
   conflict: false, error: false, message: '', notice: null, canWrite: false, canAttach: false,
   attachments: [], pendingComment: null, revision: 0, draftStored: false,
   markdown: false, mode: 'edit',
+  // A restored draft is matched by file name and contents only, so it is never written until the
+  // user types, saves, or chooses Save: two different files can share a name and contents.
+  restored: false,
 };
 const dirty = () => state.loaded && state.draft !== state.baseText;
 let saveTimer = 0, draftTimer = 0, noticeTimer = 0;
@@ -41,7 +45,7 @@ const editor = create({
   parent: ui.code,
   onChange(text) {
     if (!state.loaded) return;
-    state.draft = text; state.revision++;
+    state.draft = text; state.revision++; state.restored = false;
     if (!state.conflict) { state.error = false; state.message = ''; }
     scheduleDraft(); scheduleSave(); queueMicrotask(render);
   },
@@ -57,12 +61,13 @@ editor.setReadOnly(true);
 function render() {
   const busy = state.saving || dirty();
   const text = !state.file ? '' : state.loading && !state.loaded ? 'Loading…' : state.conflict || state.error ? state.message :
-    !state.canWrite ? 'Read only' : busy ? 'Saving…' : 'Saved';
+    !state.canWrite ? 'Read only' : state.restored && dirty() ? 'Restored unsaved edits' : busy ? 'Saving…' : 'Saved';
   ui.status.textContent = text;
   ui.status.title = text === 'Saved' ? 'Saved and verified on disk' :
     text === 'Read only' ? 'Antigravity does not allow writing this file from here.' : '';
   ui.status.dataset.error = String(state.error);
   ui.conflict.hidden = !state.conflict;
+  ui.restored.hidden = !(state.restored && dirty() && !state.conflict && state.canWrite);
   ui.empty.hidden = !!(state.file && (state.loaded || state.loading));
   ui.root.dataset.ready = String(state.loaded);
   ui.root.dataset.mode = state.mode;
@@ -184,8 +189,8 @@ async function load() {
     try {
       const { draft } = await tool('load_draft', { name: state.file.name, baseHash: state.baseHash });
       if (draft && typeof draft.draft === 'string' && draft.draft !== value.text) {
-        state.draft = draft.draft; state.draftStored = true; position = draft.position;
-        notice('Restored unsaved edits from your last session.');
+        state.draft = draft.draft; state.draftStored = true; state.restored = true; position = draft.position;
+        notice('Restored unsaved edits from your last session. Save or Discard them.');
       }
     } catch { /* No recovery available. */ }
     editor.setDocument({ uri: state.file.name, text: state.draft, selection: position,
@@ -201,7 +206,7 @@ async function load() {
 
 function scheduleSave(delay = AUTOSAVE_DELAY) {
   clearTimeout(saveTimer); saveTimer = 0;
-  if (!state.loaded || !state.canWrite || state.conflict || !dirty()) return;
+  if (!state.loaded || !state.canWrite || state.conflict || state.restored || !dirty()) return;
   saveTimer = setTimeout(() => { saveTimer = 0; save(); }, delay);
 }
 
@@ -226,6 +231,7 @@ async function write() {
 }
 
 function save() {
+  state.restored = false;
   if (state.saving) { state.saveAgain = true; return state.saving; }
   clearTimeout(saveTimer); saveTimer = 0;
   if (!state.loaded || !state.canWrite || state.conflict || !dirty()) return Promise.resolve();
@@ -250,6 +256,14 @@ async function useDisk() {
     await clearDraftFor(previousHash);
     showDocument();
   } catch (error) { state.error = true; state.message = error.message; }
+  render();
+}
+
+async function discardRestored() {
+  state.restored = false;
+  await clearDraftFor(state.baseHash);
+  state.draft = state.baseText;
+  showDocument();
   render();
 }
 
@@ -384,7 +398,10 @@ ui.quote.addEventListener('click', quote);
 ui.comment.addEventListener('click', openComposer);
 ui.clearAttached.addEventListener('click', clearAttachments);
 ui.cancel.addEventListener('click', () => closeComposer());
-ui.composer.addEventListener('submit', event => { event.preventDefault(); submitComment(); });
+// A plain button rather than a form: view frames may block form submission.
+ui.submit.addEventListener('click', submitComment);
+ui.saveRestored.addEventListener('click', () => save());
+ui.discardRestored.addEventListener('click', discardRestored);
 ui.composerInput.addEventListener('keydown', event => {
   event.stopPropagation();
   if (event.key === 'Escape') { event.preventDefault(); closeComposer(); }

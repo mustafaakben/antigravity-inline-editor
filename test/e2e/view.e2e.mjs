@@ -120,6 +120,8 @@ after(async () => {
   for (const dir of [profile, data]) if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
 });
 
+// Locally the suite skips without Chrome; in CI a missing browser is a failure, not a green run.
+if (!chromePath && process.env.CI) throw new Error('Chrome not found in CI. Set CHROME_PATH.');
 const e2e = (name, fn) => test(name, { skip: !chromePath && 'Chrome not found (set CHROME_PATH)' }, fn);
 
 e2e('opens the file the host passes and shows it as saved', async () => {
@@ -209,7 +211,49 @@ e2e('restores unsaved edits after the view reloads', async () => {
   await delay(800); // Let the recovery draft reach the server.
   await page.eval(`host.failWrites = false; document.getElementById('view').contentWindow.__stale = true; host.reload(); true`);
   await waitForFreshView();
+  assert.equal(await editorText(), 'saved text unsaved\n');
+  assert.equal(await status(), 'Restored unsaved edits');
+  // Restored drafts are matched by name and contents, so they wait for the user before writing.
+  await delay(1500);
+  assert.equal(await disk(), 'saved text\n');
+  await click('#save-restored');
   await waitFor(`host.disk.get(host.file.resourceUri) === ${JSON.stringify(b64('saved text unsaved\n'))}`);
+});
+
+e2e('a restored draft can be discarded', async () => {
+  await openFile('discard.txt', 'kept\n');
+  await page.eval('host.failWrites = true; true');
+  await click('.cm-line');
+  await key('End', 'End');
+  await type(' lost');
+  await waitFor(`${V}.getElementById('status').textContent.includes('Retrying')`);
+  await delay(800);
+  await page.eval(`host.failWrites = false; document.getElementById('view').contentWindow.__stale = true; host.reload(); true`);
+  await waitForFreshView();
+  await click('#discard-restored');
+  await waitFor(`${V}.querySelector('.cm-line').textContent === 'kept'`);
+  await page.eval(`document.getElementById('view').contentWindow.__stale = true; host.reload(); true`);
+  await waitForFreshView();
+  assert.equal(await status(), 'Saved', 'the discarded draft is gone');
+  assert.equal(await disk(), 'kept\n');
+});
+
+e2e('Comment attaches the selection and the note', async () => {
+  await openFile('notes.txt', 'alpha\nbeta\n');
+  await click('.cm-line');
+  await key('Home', 'Home');
+  await key('End', 'End', 8);
+  await waitFor(`!${V}.getElementById('selection').hidden`);
+  await click('#comment');
+  await waitFor(`!${V}.getElementById('composer').hidden`);
+  await type('Rename this');
+  await click('#composer-submit');
+  await waitFor('!!host.context');
+  const text = await page.eval('host.context.content[0].text');
+  assert.match(text, /<comment file="notes.txt" lines="1">/);
+  assert.match(text, /<note>Rename this<\/note>/);
+  await click('#clear-attached');
+  await waitFor('host.context.content.length === 0');
 });
 
 e2e('Markdown opens in Preview and switches to Edit', async () => {

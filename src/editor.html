@@ -18,6 +18,10 @@
       <button id="use-disk" type="button" class="edits-action" title="Discard your edits and show the file as it is on disk">Use disk version</button>
       <button id="keep-mine" type="button" class="edits-action edits-primary" title="Write your version over the disk changes">Keep mine</button>
     </div>
+    <div id="restored" class="edits-conflict" hidden>
+      <button id="discard-restored" type="button" class="edits-action" title="Drop the restored edits and show the file as it is on disk">Discard</button>
+      <button id="save-restored" type="button" class="edits-action edits-primary" title="Write the restored edits to the file">Save</button>
+    </div>
     <div class="edits-history">
       <button id="undo" type="button" class="edits-icon" aria-label="Undo" disabled>
         <svg width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M280-200v-80h284q63 0 109.5-40T720-420q0-60-46.5-100T564-560H312l104 104-56 56-200-200 200-200 56 56-104 104h252q97 0 166.5 63T800-420q0 94-69.5 157T564-200H280Z"/></svg>
@@ -42,13 +46,13 @@
     <button id="comment" type="button">Comment <span class="edits-keys" data-keys="⌥⌘M"></span></button>
     <button id="quote" type="button">Quote <span class="edits-keys" data-keys="⌘L"></span></button>
   </div>
-  <form id="composer" class="edits-composer" hidden>
+  <div id="composer" class="edits-composer" role="dialog" aria-label="Comment on selection" hidden>
     <textarea id="composer-input" rows="3" placeholder="Write a comment..." aria-label="Comment"></textarea>
     <div class="edits-composer-actions">
       <button id="composer-cancel" type="button" class="edits-action">Cancel</button>
-      <button type="submit" class="edits-action edits-primary">Comment</button>
+      <button id="composer-submit" type="button" class="edits-action edits-primary">Comment</button>
     </div>
-  </form>
+  </div>
 </main>
 <script type="module">/*SCRIPT*/</script>
 </body>

@@ -47,7 +47,7 @@ the view (JSON-RPC over postMessage, through @modelcontextprotocol/ext-apps):
 
 ## Interfaces this depends on
 
-All of these are documented by Antigravity or by the MCP Apps specification. They were tested with Antigravity 2.35.1.
+All of these are documented by Antigravity or by the MCP Apps specification. Opening files in Edits was verified live in Antigravity 2.35.1; the rest of the table is covered by the browser tests against a mock host until it is checked live (see [compatibility](compatibility.md)).
 
 | Area | Interface |
 |---|---|
