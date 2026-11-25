@@ -10,6 +10,9 @@ import { build } from 'esbuild';
 const root = new URL('../', import.meta.url);
 const path = relative => fileURLToPath(new URL(relative, root));
 const check = process.argv.includes('--check');
+// --debug builds a diagnostic view (src/debug.js) into --out=<file> and never touches plugin/.
+const debugBuild = process.argv.includes('--debug');
+const debugOut = process.argv.find(arg => arg.startsWith('--out='))?.slice(6);
 
 // Collects the license text of every npm package that ends up in the bundle.
 async function notices(metafile) {
@@ -40,6 +43,7 @@ const result = await build({
   legalComments: 'none', write: false, metafile: true, outfile: path('plugin/editor.js'),
   // Prefer the browser builds of the MCP SDK packages.
   conditions: ['browser'],
+  define: { EDITS_DEBUG: String(debugBuild) },
 });
 const script = result.outputFiles[0].text;
 if (/<\/script/i.test(script)) throw new Error('The bundle contains "</script" and cannot be inlined.');
@@ -54,7 +58,11 @@ const outputs = {
 };
 if (Buffer.byteLength(html) > 10 * 1024 * 1024) throw new Error('editor.html exceeds the 10 MiB MCP Apps limit.');
 
-if (check) {
+if (debugBuild) {
+  if (!debugOut) throw new Error('--debug needs --out=<file>.');
+  await writeFile(debugOut, html);
+  console.log(`Built a debug view at ${debugOut}.`);
+} else if (check) {
   for (const [file, text] of Object.entries(outputs)) {
     if (await readFile(file, 'utf8').catch(() => '') !== text) {
       console.error(`${file.split(/[\\/]/).slice(-2).join('/')} is out of date. Run \`npm run build\` and commit the result.`);

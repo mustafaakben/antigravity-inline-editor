@@ -1,7 +1,7 @@
 // The view's pure text helpers, tested without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decode, encode, clip, formatQuote, formatComment, contextBlocks, fingerprint } from '../../src/text.js';
+import { decode, encode, clip, formatQuote, formatComment, contextBlocks, attachmentLabel, fingerprint } from '../../src/text.js';
 const b64 = (bytes) => Buffer.from(bytes).toString('base64');
 
 test('decode normalizes CRLF and remembers the format', () => {
@@ -59,12 +59,18 @@ test('formatComment adds the note to the quoted context', () => {
   assert.match(text, /<note>Reword this<\/note>\n<\/comment>$/);
 });
 
-test('contextBlocks joins every pending item into one text block', () => {
+test('contextBlocks leads with a readable label and joins every pending item', () => {
   assert.deepEqual(contextBlocks([]), []);
-  const [block] = contextBlocks([{ text: 'A' }, { text: 'B' }]);
+  assert.match(contextBlocks([{ label: 'Quote from a.md, line 3', text: 'A' }])[0].text, /^Quote from a\.md, line 3\n\nA$/);
+  const [block] = contextBlocks([{ label: 'Quote from a.md, line 1', text: 'A' }, { label: 'Comment on a.md, lines 2-4', text: 'B' }]);
   assert.equal(block.type, 'text');
-  assert.match(block.text, /^The user attached these 2 items/);
+  assert.match(block.text, /^2 items from Edits: Quote from a\.md, line 1; Comment on a\.md, lines 2-4/);
   assert.match(block.text, /A\n\nB$/);
+});
+
+test('attachmentLabel names the kind, file, and lines', () => {
+  assert.equal(attachmentLabel({ kind: 'quote', name: 'a.md', sel: { startLine: 3, endLine: 3 } }), 'Quote from a.md, line 3');
+  assert.equal(attachmentLabel({ kind: 'comment', name: 'a.md', sel: { startLine: 3, endLine: 9 } }), 'Comment on a.md, lines 3-9');
 });
 
 test('fingerprint is stable and tells file versions apart', () => {

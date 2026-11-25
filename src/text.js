@@ -74,10 +74,17 @@ export function formatComment({ name, sel, comment, unsaved }) {
     after && `<after>${after}</after>`, `<note>${comment}</note>`, '</comment>'].filter(Boolean).join('\n');
 }
 
+// A short label for one attachment. Antigravity shows the start of the context text as the pill
+// on the user's message, so the label comes first: "Quote from notes.md, line 5".
+export function attachmentLabel({ kind, name, sel }) {
+  const lines = sel.startLine === sel.endLine ? `line ${sel.startLine}` : `lines ${sel.startLine}-${sel.endLine}`;
+  return `${kind === 'comment' ? 'Comment on' : 'Quote from'} ${name}, ${lines}`;
+}
+
 // The model context Edits attaches to the user's next message: every pending quote and comment.
 export function contextBlocks(items) {
   if (!items.length) return [];
-  const header = items.length === 1 ? 'The user attached this from a file open in Edits:' :
-    `The user attached these ${items.length} items from files open in Edits:`;
+  const header = items.length === 1 ? items[0].label :
+    `${items.length} items from Edits: ${items.map(item => item.label).join('; ')}`;
   return [{ type: 'text', text: [header, ...items.map(item => item.text)].join('\n\n') }];
 }

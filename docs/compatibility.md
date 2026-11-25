@@ -6,7 +6,7 @@
 
 | OS | Antigravity | Status | Evidence |
 |---|---|---|---|
-| macOS 27.2 (Apple silicon) | 2.35.1 | Partly tested live | Live: plugin discovered and its server started after an app restart; supported files open in Edits. Browser: load, autosave, CRLF and BOM kept, disk sync, conflicts, undo across saves, find, Quote, crash recovery, Preview, read-only mode. CI: unit tests. |
+| macOS 27.2 (Apple silicon) | 2.35.1 | Partly tested live | Live: plugin discovered and its server started after an app restart; supported files open in Edits; Markdown Preview; Quote and Comment from Preview attach to the next message and reach the model; the old 0.6 service is removed by `install`. Browser: load, autosave, CRLF and BOM kept, disk sync, conflicts, undo across saves, find, Quote, crash recovery, Preview, read-only mode. CI: unit tests. |
 | Windows | 2.34 or newer | Not tested live | The plugin uses no OS-specific code. CI: unit tests and install round trip. |
 | Linux | 2.34 or newer | Not tested live | As Windows. |
 

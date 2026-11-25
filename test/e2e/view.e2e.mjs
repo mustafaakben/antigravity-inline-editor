@@ -256,6 +256,60 @@ e2e('Comment attaches the selection and the note', async () => {
   await waitFor('host.context.content.length === 0');
 });
 
+e2e('Quote and Comment work on a selection in the Markdown preview', async () => {
+  await openFile('paper.md', '# Title\n\nFirst paragraph here.\n\nSecond paragraph.\n');
+  await page.eval(`(() => { const doc = ${V}; const p = doc.querySelectorAll('#preview p')[1];
+    const range = doc.createRange(); range.selectNodeContents(p);
+    const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); return true; })()`);
+  await waitFor(`!${V}.getElementById('selection').hidden`);
+  assert.equal(await page.eval(`${V}.getElementById('toolbar-quote').disabled`), false);
+  await click('#quote');
+  await waitFor('!!host.context');
+  const text = await page.eval('host.context.content[0].text');
+  assert.match(text, /<quote file="paper.md" lines="5">/);
+  assert.match(text, /<selection>Second paragraph.<\/selection>/);
+  assert.match(text, /<before>First paragraph here.<\/before>/);
+  await page.eval(`(() => { const doc = ${V}; const h = doc.querySelector('#preview h1');
+    const range = doc.createRange(); range.selectNodeContents(h);
+    const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); return true; })()`);
+  await click('#toolbar-comment');
+  await waitFor(`!${V}.getElementById('composer').hidden`);
+  await type('Shorter title');
+  await click('#composer-submit');
+  await waitFor('host.context.content[0].text.includes("<note>Shorter title</note>")');
+  assert.match(await page.eval('host.context.content[0].text'), /<comment file="paper.md" lines="1">/);
+});
+
+e2e('attachments start over after the user leaves the pane', async () => {
+  await openFile('notes.txt', 'one\ntwo\n');
+  await click('.cm-line');
+  await key('Home', 'Home');
+  await key('End', 'End', 8);
+  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
+  await click('#toolbar-quote');
+  await waitFor('!!host.context');
+  await page.eval(`document.getElementById('view').contentWindow.dispatchEvent(new Event('blur')); true`);
+  await waitFor(`${V}.getElementById('attached').hidden`);
+  await click('.cm-line:nth-child(2)');
+  await key('Home', 'Home');
+  await key('End', 'End', 8);
+  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
+  await click('#toolbar-quote');
+  await waitFor('host.context.content[0].text.includes("<selection>two</selection>")');
+  assert.doesNotMatch(await page.eval('host.context.content[0].text'), /<selection>one<\/selection>/);
+});
+
+e2e('the toolbar Quote button works in the editor', async () => {
+  await openFile('notes.txt', 'one\ntwo\n');
+  await click('.cm-line');
+  await key('Home', 'Home');
+  await key('End', 'End', 8);
+  await waitFor(`!${V}.getElementById('toolbar-quote').disabled`);
+  await click('#toolbar-quote');
+  await waitFor('!!host.context');
+  assert.match(await page.eval('host.context.content[0].text'), /<selection>one<\/selection>/);
+});
+
 e2e('Markdown opens in Preview and switches to Edit', async () => {
   await openFile('readme.md', '# Hello\n\n- [x] done\n- [ ] todo\n\n<script>parent.pwned = 1</script>\n\n[site](https://example.com)\n');
   assert.equal(await page.eval(`${V}.getElementById('edits').dataset.mode`), 'preview');

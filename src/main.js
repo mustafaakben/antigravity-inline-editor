@@ -4,8 +4,9 @@
 // the user's next message as model context.
 import { App, applyDocumentTheme, applyHostStyleVariables, applyHostFonts } from '@modelcontextprotocol/ext-apps/app-with-deps';
 import { create } from './editor-core.js';
-import { decode, encode, fingerprint, formatQuote, formatComment, contextBlocks } from './text.js';
+import { decode, encode, fingerprint, formatQuote, formatComment, contextBlocks, attachmentLabel } from './text.js';
 import { isMarkdown, renderMarkdown } from './preview.js';
+import { DEBUG, debug, debugSink } from './debug.js';
 
 const VERSION = '0.7.0';
 const AUTOSAVE_DELAY = 800, RETRY_DELAY = 3000, SYNC_INTERVAL = 2000, DRAFT_DELAY = 400;
@@ -24,6 +25,7 @@ const ui = {
   restored: $('restored'), discardRestored: $('discard-restored'), saveRestored: $('save-restored'),
   empty: $('empty'), emptyText: $('empty-text'),
   modes: $('modes'), modePreview: $('mode-preview'), modeEdit: $('mode-edit'), preview: $('preview'),
+  attachActions: $('attach-actions'), toolbarQuote: $('toolbar-quote'), toolbarComment: $('toolbar-comment'),
 };
 
 const state = {
@@ -35,6 +37,9 @@ const state = {
   // A restored draft is matched by file name and contents only, so it is never written until the
   // user types, saves, or chooses Save: two different files can share a name and contents.
   restored: false,
+  // Antigravity sends no notice when the user's message (and the attached context) goes out, so
+  // attachments start over once the user leaves this pane, which is how a message gets sent.
+  attachmentsStale: false,
 };
 const dirty = () => state.loaded && state.draft !== state.baseText;
 let saveTimer = 0, draftTimer = 0, noticeTimer = 0;
@@ -68,6 +73,7 @@ function render() {
   ui.status.dataset.error = String(state.error);
   ui.conflict.hidden = !state.conflict;
   ui.restored.hidden = !(state.restored && dirty() && !state.conflict && state.canWrite);
+  ui.attachActions.hidden = !state.canAttach || !state.loaded;
   ui.empty.hidden = !!(state.file && (state.loaded || state.loading));
   ui.root.dataset.ready = String(state.loaded);
   ui.root.dataset.mode = state.mode;
@@ -77,12 +83,13 @@ function render() {
   editor.setReadOnly(!state.loaded || !state.canWrite);
   updateHistory();
   const count = state.attachments.length;
-  ui.attached.hidden = !count;
+  ui.attached.hidden = !count || state.attachmentsStale;
   ui.attachedLabel.textContent = count === 1 ? '1 item attached to your next message' : `${count} items attached to your next message`;
   ui.footer.dataset.error = String(!!state.notice?.error);
   ui.hint.textContent = state.notice ? state.notice.text : state.mode === 'preview' ? 'Preview · Choose Edit to change the file' :
     `Changes save automatically · ${keys('⌘F')} Find · ${keys('⌥⌘F')} Replace` +
     (state.canAttach ? ' · Select text to Quote or Comment' : '');
+  if (state.mode === 'preview' && !state.notice && state.canAttach) ui.hint.textContent += ' · Select text to Quote or Comment';
 }
 
 function updateHistory() {
@@ -295,13 +302,17 @@ async function syncFromDisk() {
 
 // ---- Quote and Comment -------------------------------------------------------------------------
 
-async function attach(text) {
-  state.attachments.push({ text });
+async function attach(kind, sel, text) {
+  if (state.attachmentsStale) { state.attachments = []; state.attachmentsStale = false; }
+  state.attachments.push({ label: attachmentLabel({ kind, name: state.file.name, sel }), text });
   try {
-    await app.updateModelContext({ content: contextBlocks(state.attachments) });
+    debug('attach.request', { count: state.attachments.length, caps: app.getHostCapabilities() });
+    const result = await app.updateModelContext({ content: contextBlocks(state.attachments) });
+    debug('attach.result', result);
     render();
     return true;
-  } catch {
+  } catch (error) {
+    debug('attach.error', { message: error?.message, code: error?.code, data: error?.data });
     state.attachments.pop();
     notice('Antigravity did not accept the attachment.', true);
     return false;
@@ -315,16 +326,46 @@ async function clearAttachments() {
   editor.focus();
 }
 
+// Source lines around a range, for the context that frames a quote from the preview.
+function sourceLine(number, step) {
+  const lines = state.draft.split('\n');
+  for (let n = number + step; n >= 1 && n <= lines.length; n += step) if (lines[n - 1].trim()) return lines[n - 1];
+  return '';
+}
+
+// A selection in the Markdown preview, mapped to source lines through the blocks' data-line tags.
+function previewSelection() {
+  const selection = document.getSelection();
+  if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+  const range = selection.getRangeAt(0);
+  if (!ui.preview.contains(range.commonAncestorContainer)) return null;
+  const text = selection.toString();
+  if (!text.trim()) return null;
+  const block = node => (node.nodeType === 1 ? node : node.parentElement)?.closest('[data-line]');
+  const first = block(range.startContainer), last = block(range.endContainer);
+  const lines = state.draft.split('\n').length;
+  const startLine = Number(first?.dataset.line) || 1;
+  const endLine = Math.max(startLine, Number(last?.dataset.lineEnd ?? first?.dataset.lineEnd) || startLine);
+  const rects = range.getClientRects(), end = rects[rects.length - 1] ?? range.getBoundingClientRect();
+  return { text, startLine: Math.min(startLine, lines), endLine: Math.min(endLine, lines), linePrefix: '', lineSuffix: '',
+    lineBefore: sourceLine(startLine, -1), lineAfter: sourceLine(endLine, 1),
+    rect: { left: end.left, top: end.top, bottom: end.bottom } };
+}
+
+function currentSelection() {
+  return state.mode === 'preview' ? previewSelection() : editor.selection();
+}
+
 async function quote() {
-  const sel = editor.selection();
+  const sel = currentSelection();
   if (!sel || !state.canAttach) return;
   hideSelection();
-  if (await attach(formatQuote({ name: state.file.name, sel, unsaved: dirty() })))
+  if (await attach('quote', sel, formatQuote({ name: state.file.name, sel, unsaved: dirty() })))
     notice('Quote attached to your next message.');
 }
 
 function openComposer() {
-  const sel = editor.selection();
+  const sel = currentSelection();
   if (!sel || !state.canAttach) return;
   state.pendingComment = sel;
   hideSelection();
@@ -337,20 +378,21 @@ function openComposer() {
 function closeComposer(refocus = true) {
   if (ui.composer.hidden) return;
   ui.composer.hidden = true; state.pendingComment = null;
-  if (refocus) editor.focus();
+  if (refocus && state.mode === 'edit') editor.focus();
 }
 
 async function submitComment() {
   const sel = state.pendingComment, comment = ui.composerInput.value.trim();
   if (!sel || !comment) return;
   closeComposer();
-  if (await attach(formatComment({ name: state.file.name, sel, comment, unsaved: dirty() })))
+  if (await attach('comment', sel, formatComment({ name: state.file.name, sel, comment, unsaved: dirty() })))
     notice('Comment attached to your next message.');
 }
 
 // Positions a floating element below the selection end, or above it near the bottom.
 function place(el, rect) {
-  const root = ui.root.getBoundingClientRect(), code = ui.code.getBoundingClientRect();
+  const root = ui.root.getBoundingClientRect();
+  const code = (state.mode === 'preview' ? ui.preview : ui.code).getBoundingClientRect();
   const width = el.offsetWidth, height = el.offsetHeight;
   let top = rect.bottom - root.top + 6;
   if (rect.bottom + 6 + height > code.bottom) top = rect.top - root.top - height - 6;
@@ -359,8 +401,23 @@ function place(el, rect) {
 }
 
 function hideSelection() { ui.popup.hidden = true; }
+
+function updatePreviewSelection() {
+  const sel = state.loaded && state.canAttach && ui.composer.hidden && previewSelection();
+  if (!sel?.rect) return hideSelection();
+  ui.popup.hidden = false;
+  place(ui.popup, sel.rect);
+}
+function updateToolbarActions() {
+  const has = !!(state.loaded && state.canAttach && currentSelection());
+  ui.toolbarQuote.disabled = ui.toolbarComment.disabled = !has;
+}
+
 function updateSelection() {
+  updateToolbarActions();
+  if (state.mode === 'preview') return updatePreviewSelection();
   const sel = state.loaded && state.canAttach && ui.composer.hidden && editor.hasFocus && editor.selection();
+  if (DEBUG && editor.selection()) debug('selection', { loaded: state.loaded, canAttach: state.canAttach, composer: ui.composer.hidden, focus: editor.hasFocus, rect: sel?.rect, mode: state.mode });
   const code = ui.code.getBoundingClientRect();
   if (!sel?.rect || sel.rect.bottom < code.top || sel.rect.top > code.bottom) return hideSelection();
   ui.popup.hidden = false;
@@ -370,9 +427,10 @@ function updateSelection() {
 // ---- Events ------------------------------------------------------------------------------------
 
 for (const [el, label] of [[ui.undo, 'Undo (⌘Z)'], [ui.redo, 'Redo (⇧⌘Z)'], [ui.find, 'Find (⌘F) · Replace (⌥⌘F)'],
-  [ui.comment, 'Comment on selection (⌥⌘M)'], [ui.quote, 'Quote selection in chat (⌘L)']]) el.title = keys(label);
+  [ui.comment, 'Comment on the selection'], [ui.quote, 'Quote the selection in your next message'],
+  [ui.toolbarComment, 'Comment on the selection'], [ui.toolbarQuote, 'Quote the selection in your next message']]) el.title = keys(label);
 for (const el of ui.root.querySelectorAll('[data-keys]')) el.textContent = keys(el.dataset.keys);
-for (const el of [ui.popup, ui.undo, ui.redo])
+for (const el of [ui.popup, ui.undo, ui.redo, ui.attachActions])
   for (const type of ['mousedown', 'pointerdown']) el.addEventListener(type, event => event.preventDefault(), { capture: true });
 ui.undo.addEventListener('click', () => editor.undo());
 ui.redo.addEventListener('click', () => editor.redo());
@@ -396,6 +454,11 @@ ui.useDisk.addEventListener('click', useDisk);
 ui.keepMine.addEventListener('click', keepMine);
 ui.quote.addEventListener('click', quote);
 ui.comment.addEventListener('click', openComposer);
+ui.toolbarQuote.addEventListener('click', quote);
+ui.toolbarComment.addEventListener('click', openComposer);
+// Preview selections: CodeMirror reports its own, the rendered Markdown needs the document's.
+document.addEventListener('selectionchange', () => { if (state.mode === 'preview') queueMicrotask(updateSelection); });
+ui.preview.addEventListener('scroll', () => { if (!ui.popup.hidden) updatePreviewSelection(); });
 ui.clearAttached.addEventListener('click', clearAttachments);
 ui.cancel.addEventListener('click', () => closeComposer());
 // A plain button rather than a form: view frames may block form submission.
@@ -426,6 +489,11 @@ for (const type of ['pagehide', 'visibilitychange']) window.addEventListener(typ
   if (dirty()) { storeDraft(); save(); }
 });
 setInterval(syncFromDisk, SYNC_INTERVAL);
+window.addEventListener('blur', () => {
+  if (!state.attachments.length || !ui.composer.hidden) return;
+  state.attachmentsStale = true;
+  render();
+});
 
 // ---- Host connection ---------------------------------------------------------------------------
 
@@ -455,11 +523,24 @@ function openFile(file) {
 
 app.ontoolinput = ({ arguments: args }) => openFile(args?.file);
 app.ontoolresult = result => openFile(result?.structuredContent?.file);
-app.onhostcontextchanged = context => { applyContext(context); render(); };
+app.onhostcontextchanged = context => { debug('host.context', context); applyContext(context); render(); };
 
 render();
+if (DEBUG) {
+  debugSink(text => app.callServerTool({ name: 'save_draft', arguments: { name: '__edits_debug__', baseHash: 'debug', draft: text } }));
+  window.addEventListener('error', event => debug('window.error', { message: event.message, line: event.lineno }));
+  window.addEventListener('unhandledrejection', event => debug('unhandled', { message: event.reason?.message ?? String(event.reason) }));
+  window.addEventListener('keydown', event => { if (event.metaKey || event.ctrlKey) debug('key', { key: event.key, code: event.code, alt: event.altKey }); }, { capture: true });
+  document.addEventListener('selectionchange', () => { const text = String(document.getSelection()); if (text) debug('dom.selection', { mode: state.mode, length: text.length }); });
+  app.fallbackNotificationHandler = async notification => debug('host.notification', notification);
+  app.fallbackRequestHandler = async request => { debug('host.request', request); return {}; };
+  window.addEventListener('focus', () => debug('window.focus', {}));
+  window.addEventListener('blur', () => debug('window.blur', {}));
+  for (const id of ['quote', 'comment', 'composer-submit', 'toolbar-quote', 'toolbar-comment']) document.getElementById(id).addEventListener('click', () => debug(`click.${id}`, {}), { capture: true });
+}
 try {
   await app.connect();
+  debug('connected', { hostInfo: app.getHostVersion(), caps: app.getHostCapabilities(), contextKeys: Object.keys(app.getHostContext() ?? {}), resources: app.getHostContext()?.['com.google.antigravity/resources'], displayMode: app.getHostContext()?.displayMode });
   applyContext(app.getHostContext());
   refreshCapabilities();
   if (!state.file) ui.emptyText.textContent = 'Open a text file from the side panel to edit it here.';

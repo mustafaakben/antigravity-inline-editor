@@ -16,7 +16,7 @@ Since version 0.7, Edits is an Antigravity **plugin** built on [MCP Apps](https:
 - **Outside changes sync in.** When an agent or another app changes the file, Edits picks it up within about 2 seconds. If the disk changes while you have pending edits, you choose between **Use disk version** and **Keep mine**.
 - **Undo and redo.** ⌘Z / ⇧⌘Z (Ctrl+Z / Ctrl+Shift+Z) and toolbar buttons work across autosaves, including undoing an accidental Replace All.
 - **Find and replace.** Match case, whole word, regular expressions, and a live match count. ⌘F finds; ⌥⌘F (Ctrl+Alt+F) adds replace.
-- **Quote and Comment.** Select text to quote it (⌘L) or comment on it (⌥⌘M). Both are attached, with the surrounding lines for context, to your next message in the conversation.
+- **Quote and Comment.** Select text in Preview or Edit, then choose **Quote** or **Comment** in the popup or the toolbar. The selection, its line numbers, and the surrounding lines are attached to your next message in the conversation.
 - **Crash recovery.** Unsaved edits are kept in a private local file and restored when you reopen the file.
 
 Keyboard shortcuts are shown with macOS symbols; on Windows and Linux use Ctrl for ⌘ and Alt for ⌥.
@@ -69,7 +69,8 @@ If you installed from a clone, run `node bin/cli.mjs <command>` from the clone.
 
 - Files up to 10 MB of UTF-8 text. Edits refuses files with mixed line endings rather than change them.
 - Images in the Markdown Preview do not load, because the view's security policy blocks web and relative image paths. Images embedded as `data:` URIs do.
-- Quote and Comment add one attachment to your next message; **Clear** in the footer removes it. They are not Antigravity's native review comments, which plugins cannot create.
+- Quote and Comment add one attachment to your next message, which collects everything you quote until you leave the Edits pane; the next Quote after that starts a new attachment. **Clear** in the footer removes it. They are not Antigravity's native review comments, which plugins cannot create.
+- Antigravity handles ⌘L and some other shortcuts itself, so use the Quote and Comment buttons.
 
 ## Updating
 

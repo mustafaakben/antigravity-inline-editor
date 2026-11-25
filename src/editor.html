@@ -30,6 +30,10 @@
         <svg width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M396-200q-97 0-166.5-63T160-420q0-94 69.5-157T396-640h252L544-744l56-56 200 200-200 200-56-56 104-104H396q-63 0-109.5 40T240-420q0 60 46.5 100T396-280h284v80H396Z"/></svg>
       </button>
     </div>
+    <div id="attach-actions" class="edits-conflict" hidden>
+      <button id="toolbar-quote" type="button" class="edits-action" disabled>Quote</button>
+      <button id="toolbar-comment" type="button" class="edits-action" disabled>Comment</button>
+    </div>
     <button id="find" type="button" class="edits-action" aria-pressed="false">Find</button>
   </div>
   <div id="code" class="edits-code"></div>
@@ -43,8 +47,8 @@
     </span>
   </footer>
   <div id="selection" class="edits-selection" hidden>
-    <button id="comment" type="button">Comment <span class="edits-keys" data-keys="⌥⌘M"></span></button>
-    <button id="quote" type="button">Quote <span class="edits-keys" data-keys="⌘L"></span></button>
+    <button id="comment" type="button">Comment</button>
+    <button id="quote" type="button">Quote</button>
   </div>
   <div id="composer" class="edits-composer" role="dialog" aria-label="Comment on selection" hidden>
     <textarea id="composer-input" rows="3" placeholder="Write a comment..." aria-label="Comment"></textarea>
